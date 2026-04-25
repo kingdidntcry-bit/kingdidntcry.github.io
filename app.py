@@ -157,11 +157,6 @@ if st.sidebar.button("← Return to Home", use_container_width=True):
 
 st.sidebar.title("TerraScan Catalog")
 
-catalog_mode = st.sidebar.radio("Processing Modules", [
-    "Temporal Indices Comparison",
-    "Machine Learning Land Classification"
-])
-
 # --- Main App Dashboard ---
 st.sidebar.markdown("---")
 run_ml = False
@@ -179,28 +174,19 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
             
     current_y = datetime.date.today().year
 
-    if catalog_mode == "Temporal Indices Comparison":
-        st.subheader("Data Source")
-        data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
+    st.subheader("Data Source")
+    data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
 
-        st.subheader("Temporal Windows (Annual Median)")
-        baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
-        comparison_year = st.selectbox("Comparison Year", range(2015, current_y + 1), index=current_y - 2015)
+    st.subheader("Temporal Windows (Annual Median)")
+    baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
+    comparison_year = st.selectbox("Comparison Year", range(2015, current_y + 1), index=current_y - 2015)
 
-        st.subheader("Mapping Indices")
-        available_indices = ["True Color", "NDVI", "NDBI", "NDMI", "NDWI", "MNDWI", "EVI", "SAVI"]
-        if data_source == "Landsat (30m)":
-            available_indices.append("LST")
-        layer_selection = st.selectbox("Select Layer to Display", available_indices)
-    else:
-        st.subheader("Machine Learning Setup")
-        ml_year = st.selectbox("Classification Year", range(2017, current_y + 1), index=max(0, current_y - 2017))
-        ml_trees = st.slider("Random Forest Trees", min_value=10, max_value=150, value=30, step=10)
-        ml_samples_per_class = st.slider("Samples Per Class", min_value=20, max_value=200, value=40, step=10)
-        run_ml = st.button("Run / Refresh Classification", use_container_width=True)
+    st.subheader("Mapping Indices")
+    available_indices = ["True Color", "NDVI", "NDBI", "NDMI", "NDWI", "MNDWI", "EVI", "SAVI"]
+    if data_source == "Landsat (30m)":
+        available_indices.append("LST")
+    layer_selection = st.selectbox("Select Layer to Display", available_indices)
 
-    if catalog_mode == "Temporal Indices Comparison":
-        st.caption("Indices and processing documentation is available in the right panel.")
 
 # --- GEE Backend Functions ---
 def get_landsat_collection(start_date, end_date):
@@ -348,77 +334,10 @@ def calculate_manual_lst(img):
     )
     return lst_k.subtract(273.15).rename('LST')
 
-
-def mask_s2_clouds(image):
-    qa = image.select("QA60")
-    cloud_bit_mask = 1 << 10
-    cirrus_bit_mask = 1 << 11
-    mask = qa.bitwiseAnd(cloud_bit_mask).eq(0).And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
-    return image.updateMask(mask).divide(10000)
-
-
-def classify_land_cover_rf(roi, year, trees, samples_per_class):
-    start = f"{year}-01-01"
-    end = f"{year}-12-31"
-    bands = ["B2", "B3", "B4", "B8", "B11"]
-
-    img = (
-        ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-        .filterBounds(roi)
-        .filterDate(start, end)
-        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", 30))
-        .limit(80, "CLOUDY_PIXEL_PERCENTAGE")
-        .map(mask_s2_clouds)
-        .median()
-        .select(bands)
-        .clip(roi)
-    )
-
-    class_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100]
-    remap_values = ee.List.sequence(0, 10)
-    label = "lc"
-
-    lc = (
-        ee.Image("ESA/WorldCover/v100/2020")
-        .remap(class_values, remap_values)
-        .rename(label)
-        .toByte()
-        .clip(roi)
-    )
-
-    sample = img.addBands(lc).stratifiedSample(
-        numPoints=samples_per_class,
-        classBand=label,
-        region=roi,
-        scale=10,
-        geometries=True,
-    )
-    sample = sample.randomColumn()
-    training_sample = sample.filter("random <= 0.8")
-    validation_sample = sample.filter("random > 0.8")
-
-    classifier = ee.Classifier.smileRandomForest(numberOfTrees=trees).train(
-        features=training_sample,
-        classProperty=label,
-        inputProperties=img.bandNames(),
-    )
-
-    classified = img.classify(classifier).clip(roi)
-    validated = validation_sample.classify(classifier)
-    error_matrix = validated.errorMatrix(label, "classification")
-
-    metrics = {
-        "overall_accuracy": ee.Number(error_matrix.accuracy()).getInfo(),
-        "kappa": ee.Number(error_matrix.kappa()).getInfo(),
-        "training_points": training_sample.size().getInfo(),
-        "validation_points": validation_sample.size().getInfo(),
-    }
-    return classified, img, metrics
-
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_unesco_sites():
     sites = []
-    limit = 200
+    limit = 100
     offset = 0
     select_fields = "id_no,name_en,name_fr,states_names,coordinates"
 
@@ -539,59 +458,10 @@ with col_map:
     m = foliumap.Map(center=st.session_state["persistent_center"], zoom=st.session_state["persistent_zoom"], basemap=DEFAULT_BASEMAP)
         
     folium.plugins.Geocoder().add_to(m)
-    ml_metrics = None
-    processed_ml = False
-
-    if catalog_mode == "Machine Learning Land Classification" and click_pt:
-        ml_key = (
-            round(click_pt["lat"], 5),
-            round(click_pt["lng"], 5),
-            int(ml_year),
-            int(ml_trees),
-            int(ml_samples_per_class),
-        )
-        cached_ml = st.session_state.get("ml_cache")
-        needs_refresh = run_ml or (not cached_ml) or (cached_ml.get("key") != ml_key)
-
-        if needs_refresh and run_ml:
-            pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
-            roi = pt.buffer(10000).bounds()
-            try:
-                with st.spinner("Training Random Forest classifier and generating land cover map..."):
-                    classified_img, sentinel_img, ml_metrics = classify_land_cover_rf(
-                        roi=roi,
-                        year=ml_year,
-                        trees=ml_trees,
-                        samples_per_class=ml_samples_per_class,
-                    )
-                st.session_state["ml_cache"] = {
-                    "key": ml_key,
-                    "classified_img": classified_img,
-                    "sentinel_img": sentinel_img,
-                    "metrics": ml_metrics,
-                }
-                cached_ml = st.session_state["ml_cache"]
-            except Exception as ml_err:
-                st.error(f"ML classification failed: {ml_err}")
-
-        if cached_ml and cached_ml.get("key") == ml_key:
-            ml_metrics = cached_ml["metrics"]
-            rgb_vis = {"bands": ["B4", "B3", "B2"], "min": 0.02, "max": 0.35}
-            m.add_ee_layer(cached_ml["sentinel_img"], rgb_vis, "Sentinel-2 Composite", shown=False)
-            lc_palette = [
-                "#419bdf", "#397d49", "#88b053", "#7a87c6", "#e49635",
-                "#dfc35a", "#c4281b", "#a59b8f", "#b39fe1", "#e86d9f", "#7bc7ff",
-            ]
-            lc_vis = {"min": 0, "max": 10, "palette": lc_palette}
-            m.add_ee_layer(cached_ml["classified_img"], lc_vis, "RF Land Cover")
-            processed_ml = True
-        else:
-            st.info("Click `Run / Refresh Classification` to prepare land-cover output for this location.")
-    
     try:
         if not click_pt:
             st.info("Awaiting interaction. Maps will load satellite data only after a coordinate is selected.")
-        elif catalog_mode == "Temporal Indices Comparison":
+        else:
             pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
             roi = pt.buffer(10000).bounds()
             
@@ -647,7 +517,7 @@ with col_map:
                 left_url = f_base.result()
                 right_url = f_comp.result()
 
-            m.split_map(left_layer=right_url, right_layer=left_url)
+            m.split_map(left_layer=left_url, right_layer=right_url)
     except Exception as e:
         st.error(f"Error drawing map: {e}")
 
@@ -667,62 +537,30 @@ with col_map:
 
 # --- Dynamic Legends Area ---
 with col_stats:
-    if catalog_mode == "Temporal Indices Comparison":
-        st.subheader("Interactive Indicator Legends")
-        st.markdown("Use the classifications below to interpret the satellite spectral maps mathematically.")
+    st.subheader("Interactive Indicator Legends")
+    st.markdown("Use the classifications below to interpret the satellite spectral maps mathematically.")
 
-        if layer_selection == "True Color":
-            st.info("True Color visualizes standard human-visible satellite reflections completely unmodified.")
-        else:
-            st.markdown(f"#### Processing Output: {layer_selection}")
-            st.info("Continuous mapping outputs are rendered directly into the viewport legend overlays.")
-
-        st.markdown("---")
-        st.markdown("### Machine Learning Module")
-        st.markdown("Switch to **Machine Learning Land Classification** in the sidebar to run Random Forest land-cover mapping.")
+    if layer_selection == "True Color":
+        st.info("True Color visualizes standard human-visible satellite reflections completely unmodified.")
     else:
-        st.subheader("Machine Learning Results")
-        st.markdown("Random Forest classification is trained from Sentinel-2 predictors and ESA WorldCover labels in the selected 10 km ROI.")
-        st.markdown("#### Class Legend (WorldCover)")
-        st.markdown(
-            "0 Water, 1 Trees, 2 Grass, 3 Flooded vegetation, 4 Cropland, "
-            "5 Built-up, 6 Bare/sparse, 7 Snow/ice, 8 Permanent wetlands, "
-            "9 Mangroves, 10 Moss/lichen"
-        )
-        if ml_metrics:
-            st.markdown("---")
-            st.metric("Overall Accuracy", f"{ml_metrics['overall_accuracy']:.2%}")
-            st.metric("Kappa", f"{ml_metrics['kappa']:.3f}")
-            st.caption(
-                f"Training samples: {ml_metrics['training_points']} | "
-                f"Validation samples: {ml_metrics['validation_points']}"
-            )
-        else:
-            st.info("No prepared ML output yet. Choose a UNESCO site and click `Run / Refresh Classification` in the sidebar.")
+        st.markdown(f"#### Processing Output: {layer_selection}")
+        st.info("Continuous mapping outputs are rendered directly into the viewport legend overlays.")
 
-    with st.expander("Indices and Processing Documentation", expanded=False):
-        st.markdown(
-            """
-            **Temporal index formulas**
-            - NDVI: `(NIR - RED) / (NIR + RED)`
-            - NDBI: `(SWIR1 - NIR) / (SWIR1 + NIR)`
-            - NDMI: `(NIR - SWIR1) / (NIR + SWIR1)`
-            - NDWI (McFeeters): `(GREEN - NIR) / (GREEN + NIR)`
-            - MNDWI (Xu): `(GREEN - SWIR1) / (GREEN + SWIR1)`
-            - EVI: `2.5 * (NIR - RED) / (NIR + 6*RED - 7.5*BLUE + 1)`
-            - SAVI (L=0.5): `1.5 * (NIR - RED) / (NIR + RED + 0.5)`
+# --- Full Width Footer (Documentation) ---
+st.markdown("---")
+st.subheader("📚 Spectral Indices Documentation")
+st.markdown("""
+This dashboard dynamically extracts and calculates spectral indices from raw satellite data to isolate specific physical phenomena on the Earth's surface.
 
-            **Band mapping**
-            - Sentinel-2: `NIR=B8`, `RED=B4`, `GREEN=B3`, `BLUE=B2`, `SWIR1=B11`
-            - Landsat 8/9: `NIR=SR_B5`, `RED=SR_B4`, `GREEN=SR_B3`, `BLUE=SR_B2`, `SWIR1=SR_B6`
-
-            **Machine Learning land-cover pipeline**
-            1. Build cloud-masked Sentinel-2 annual composite in selected UNESCO ROI.
-            2. Use ESA WorldCover classes as training labels.
-            3. Stratified sampling by class.
-            4. Train `smileRandomForest`.
-            5. Validate with held-out samples (overall accuracy + kappa).
-            6. Render predicted land-cover map.
-            """
-        )
+| Index | Name | Real-World Application & Interpretation |
+| :--- | :--- | :--- |
+| **NDVI** | Normalized Difference Vegetation Index | Measures the density and health of green vegetation. High values (green) indicate dense, healthy forests or crops, while low values (red) indicate barren land or concrete. |
+| **NDBI** | Normalized Difference Built-up Index | Highlights urban infrastructure. High values (red) indicate dense concrete, asphalt, or bare soil, while low values (green) indicate vegetation or water. |
+| **NDMI** | Normalized Difference Moisture Index | Detects moisture levels within vegetation. High values (blue) indicate high canopy water content, while low values (brown) indicate water stress or drought. |
+| **NDWI** | Normalized Difference Water Index | Identifies open water bodies. High values (blue) indicate rivers, lakes, or oceans, while low values (brown) indicate dry land. |
+| **MNDWI** | Modified NDWI | An enhanced version of NDWI that uses the Shortwave Infrared band to better distinguish open water from built-up urban features, suppressing noise inside cities. |
+| **EVI** | Enhanced Vegetation Index | Similar to NDVI but mathematically corrected for atmospheric conditions and canopy background noise. Excellent for mapping extremely dense rainforests where NDVI normally saturates. |
+| **SAVI** | Soil Adjusted Vegetation Index | A vegetation index that incorporates a soil brightness correction factor. Ideal for arid, dry, or sparsely vegetated regions where bare soil interferes with standard NDVI readings. |
+| **LST** | Land Surface Temperature | Estimates the actual temperature of the Earth's surface (in °C) by calculating the thermal infrared emissions captured specifically by Landsat 8/9 satellites. |
+""")
 
