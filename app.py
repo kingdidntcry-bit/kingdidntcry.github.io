@@ -1,25 +1,27 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import ee
-import leafmap.foliumap as foliumap
-import leafmap
 import datetime
+import folium.plugins
+import leafmap.foliumap as foliumap
 from concurrent.futures import ThreadPoolExecutor
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 
 # --- Setup & Initialize ---
 st.set_page_config(layout="wide", page_title="TerraScan")
 
-if "persistent_click" not in st.session_state:
-    st.session_state["persistent_click"] = None
-if "map_locked" not in st.session_state:
-    st.session_state["map_locked"] = False
-if "persistent_zoom" not in st.session_state:
-    st.session_state["persistent_zoom"] = 12
-if "persistent_center" not in st.session_state:
-    st.session_state["persistent_center"] = [2.9264, 101.6964]
+DEFAULT_CENTER = [2.9264, 101.6964]
+DEFAULT_ZOOM = 12
+EE_PROJECT = "geomatic-competition-2026"
+
+SESSION_DEFAULTS = {
+    "persistent_click": None,
+    "map_locked": False,
+    "persistent_zoom": DEFAULT_ZOOM,
+    "persistent_center": DEFAULT_CENTER,
+}
+for key, value in SESSION_DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 # --- SPA Routing Core (Basewell Logic) ---
 if "page" not in st.session_state:
@@ -100,9 +102,8 @@ if st.session_state.page == "landing":
         </div>
     """, unsafe_allow_html=True)
     
-    col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 2])
+    _, _, col3, _, _ = st.columns([2, 1, 1, 1, 2])
     with col3:
-        st.write("") 
         if st.button("Browse Catalog"):
             st.session_state.page = "dashboard"
             st.rerun()
@@ -131,16 +132,14 @@ if catalog_mode == "Machine Learning Land Classification":
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
-    ee_project = "geomatic-competition-2026"
-    
     try:
-        ee.Initialize(project=ee_project)
-    except Exception as e:
+        ee.Initialize(project=EE_PROJECT)
+    except Exception:
         try:
             ee.Authenticate()
-            ee.Initialize(project=ee_project)
-        except Exception as e2:
-            st.error(f"Failed to authenticate with project '{ee_project}'. Ensure your project exists and Earth Engine API is enabled.")
+            ee.Initialize(project=EE_PROJECT)
+        except Exception:
+            st.error(f"Failed to authenticate with project '{EE_PROJECT}'. Ensure your project exists and Earth Engine API is enabled.")
             st.stop()
             
     st.subheader("Map Preferences")
@@ -284,7 +283,6 @@ with col_map:
     # Initialize Map preserving the exact local user viewpoint safely
     m = foliumap.Map(center=st.session_state["persistent_center"], zoom=st.session_state["persistent_zoom"], basemap=selected_basemap)
         
-    import folium.plugins
     folium.plugins.Geocoder().add_to(m)
     
     try:
