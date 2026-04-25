@@ -1,4 +1,8 @@
 import streamlit as st
+import base64
+from PIL import Image, ImageSequence
+import os
+import geemap
 from streamlit_folium import st_folium
 import ee
 import datetime
@@ -157,6 +161,8 @@ if st.sidebar.button("← Return to Home", use_container_width=True):
 
 st.sidebar.title("TerraScan Catalog")
 
+catalog_mode = st.sidebar.radio("Processing Modules", ["Indices Analysis", "Timelapse Viewer"])
+
 # --- Main App Dashboard ---
 st.sidebar.markdown("---")
 run_ml = False
@@ -174,18 +180,26 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
             
     current_y = datetime.date.today().year
 
-    st.subheader("Data Source")
-    data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
-
-    st.subheader("Temporal Windows (Annual Median)")
-    baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
-    comparison_year = st.selectbox("Comparison Year", range(2015, current_y + 1), index=current_y - 2015)
-
-    st.subheader("Mapping Indices")
-    available_indices = ["True Color", "NDVI", "NDBI", "NDMI", "NDWI", "MNDWI", "EVI", "SAVI"]
-    if data_source == "Landsat (30m)":
-        available_indices.append("LST")
-    layer_selection = st.selectbox("Select Layer to Display", available_indices)
+    if catalog_mode == "Indices Analysis":
+        st.subheader("Data Source")
+        data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
+    
+        st.subheader("Temporal Windows (Annual Median)")
+        baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
+        comparison_year = st.selectbox("Comparison Year", range(2015, current_y + 1), index=current_y - 2015)
+    
+        st.subheader("Mapping Indices")
+        available_indices = ["True Color", "NDVI", "NDBI", "NDMI", "NDWI", "MNDWI", "EVI", "SAVI"]
+        if data_source == "Landsat (30m)":
+            available_indices.append("LST")
+        layer_selection = st.selectbox("Select Layer to Display", available_indices)
+    else:
+        st.subheader("Timelapse Settings")
+        tl_start_year = st.selectbox("Start Year", range(1984, current_y), index=0)
+        tl_end_year = st.selectbox("End Year", range(1984, current_y + 1), index=current_y - 1984)
+        tl_fps = st.slider("Frames Per Second", 1, 10, 5)
+        tl_bands = st.selectbox("Band Combination", ["True Color (Red, Green, Blue)", "Color Infrared (NIR, Red, Green)", "SWIR (SWIR2, SWIR1, Red)"])
+        run_tl = st.button("Generate Timelapse", use_container_width=True)
 
 
 # --- GEE Backend Functions ---
@@ -391,192 +405,313 @@ def fetch_unesco_sites():
 
 
 # --- Top App Layout (Map & Classification) ---
-col_map, col_stats = st.columns([2, 1])
-
-with col_map:
-    st.subheader("Dual-Pane Interactive Map")
-
-    unesco_sites = []
-    try:
-        unesco_sites = fetch_unesco_sites()
-    except Exception:
-        st.warning("UNESCO site selector is temporarily unavailable. You can still click directly on the map.")
-
-    if unesco_sites:
-        selector_col1, selector_col2 = st.columns([1, 2])
-        country_options = sorted({site["country"] for site in unesco_sites})
-
-        with selector_col1:
-            selected_country = st.selectbox(
-                "Country",
-                ["All Countries"] + country_options,
-                key="unesco_country_filter",
-            )
-
-        filtered_sites = [
-            site for site in unesco_sites
-            if selected_country == "All Countries" or site["country"] == selected_country
-        ]
-        site_label_to_record = {
-            f"{site['site']} ({site['country']})": site for site in filtered_sites
-        }
-        site_options = ["Select a UNESCO place..."] + list(site_label_to_record.keys())
-
-        with selector_col2:
-            selected_site_label = st.selectbox(
-                "UNESCO Place",
-                site_options,
-                key="unesco_site_picker",
-            )
-
-        if selected_site_label != "Select a UNESCO place...":
-            selected_site = site_label_to_record[selected_site_label]
-            if st.session_state["selected_unesco_site_id"] != selected_site["id"]:
-                st.session_state["selected_unesco_site_id"] = selected_site["id"]
-                st.session_state["persistent_click"] = {
-                    "lat": selected_site["lat"],
-                    "lng": selected_site["lng"],
-                }
-                st.session_state["persistent_center"] = [selected_site["lat"], selected_site["lng"]]
-                st.session_state["persistent_zoom"] = 11
-                st.session_state["map_locked"] = True
-                st.rerun()
-
-    if not st.session_state.get("map_locked", False):
-        st.markdown("Select a UNESCO place above, or click the map to evaluate a 5km UNESCO Heritage region.")
-    else:
-        st.markdown("Observation Mode: The map is locked for stable UI interaction.")
-        if st.button("Unlock & Select New Region", use_container_width=True):
-            st.session_state["map_locked"] = False
-            st.session_state["persistent_click"] = None
-            st.session_state["selected_unesco_site_id"] = None
-            st.rerun()
-            
-    click_pt = st.session_state["persistent_click"]
+if catalog_mode == "Indices Analysis":
+    col_map, col_stats = st.columns([2, 1])
     
-    # Initialize Map preserving the exact local user viewpoint safely
-    m = foliumap.Map(center=st.session_state["persistent_center"], zoom=st.session_state["persistent_zoom"], basemap=DEFAULT_BASEMAP)
-        
-    folium.plugins.Geocoder().add_to(m)
-    try:
-        if not click_pt:
-            st.info("Awaiting interaction. Maps will load satellite data only after a coordinate is selected.")
+    with col_map:
+        st.subheader("Dual-Pane Interactive Map")
+    
+        unesco_sites = []
+        try:
+            unesco_sites = fetch_unesco_sites()
+        except Exception:
+            st.warning("UNESCO site selector is temporarily unavailable. You can still click directly on the map.")
+    
+        if unesco_sites:
+            selector_col1, selector_col2 = st.columns([1, 2])
+            country_options = sorted({site["country"] for site in unesco_sites})
+    
+            with selector_col1:
+                selected_country = st.selectbox(
+                    "Country",
+                    ["All Countries"] + country_options,
+                    key="unesco_country_filter",
+                )
+    
+            filtered_sites = [
+                site for site in unesco_sites
+                if selected_country == "All Countries" or site["country"] == selected_country
+            ]
+            site_label_to_record = {
+                f"{site['site']} ({site['country']})": site for site in filtered_sites
+            }
+            site_options = ["Select a UNESCO place..."] + list(site_label_to_record.keys())
+    
+            with selector_col2:
+                selected_site_label = st.selectbox(
+                    "UNESCO Place",
+                    site_options,
+                    key="unesco_site_picker",
+                )
+    
+            if selected_site_label != "Select a UNESCO place...":
+                selected_site = site_label_to_record[selected_site_label]
+                if st.session_state["selected_unesco_site_id"] != selected_site["id"]:
+                    st.session_state["selected_unesco_site_id"] = selected_site["id"]
+                    st.session_state["persistent_click"] = {
+                        "lat": selected_site["lat"],
+                        "lng": selected_site["lng"],
+                    }
+                    st.session_state["persistent_center"] = [selected_site["lat"], selected_site["lng"]]
+                    st.session_state["persistent_zoom"] = 11
+                    st.session_state["map_locked"] = True
+                    st.rerun()
+    
+        if not st.session_state.get("map_locked", False):
+            st.markdown("Select a UNESCO place above, or click the map to evaluate a 5km UNESCO Heritage region.")
         else:
-            pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
-            roi = pt.buffer(5000).bounds()
-            
-            baseline_img = get_annual_median(baseline_year, data_source).clip(roi)
-            comp_img = get_annual_median(comparison_year, data_source).clip(roi)
-        
-            if layer_selection == "NDVI":
-                vis_params = {'bands': ['NDVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                def fetch_url(img): 
-                    return img.getMapId(vis_params)['tile_fetcher'].url_format
-            elif layer_selection == "LST" and data_source == "Landsat (30m)":
-                vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
-                baseline_img = calculate_manual_lst(baseline_img)
-                comp_img = calculate_manual_lst(comp_img)
-                def fetch_url(img):
-                    return img.getMapId(vis_params)['tile_fetcher'].url_format
-            else:
-                if layer_selection == "True Color":
-                    if data_source == "Landsat (30m)":
-                        vis_params = {'bands': ['SR_B4', 'SR_B3', 'SR_B2'], 'min': 0.0, 'max': 0.3}
-                    else:
-                        vis_params = {'bands': ['B4', 'B3', 'B2'], 'min': 0.0, 'max': 0.3}
-                elif layer_selection == "NDBI":
-                    vis_params = {'bands': ['NDBI'], 'min': -1.0, 'max': 1.0, 'palette': ['green', 'yellow', 'red']}
-                elif layer_selection == "NDMI":
-                    vis_params = {'bands': ['NDMI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'yellow', 'blue']}
-                elif layer_selection == "NDWI":
-                    vis_params = {'bands': ['NDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'blue']}
-                elif layer_selection == "MNDWI":
-                    vis_params = {'bands': ['MNDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'cyan']}
-                elif layer_selection == "EVI":
-                    vis_params = {'bands': ['EVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                elif layer_selection == "SAVI":
-                    vis_params = {'bands': ['SAVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                elif layer_selection == "LST":
-                    vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
-                
-                def fetch_url(img):
-                    return img.getMapId(vis_params)['tile_fetcher'].url_format
-
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                f_base = executor.submit(fetch_url, baseline_img)
-                f_comp = executor.submit(fetch_url, comp_img)
-                left_url = f_base.result()
-                right_url = f_comp.result()
-
-            m.split_map(left_layer=left_url, right_layer=right_url)
-    except Exception as e:
-        st.error(f"Error drawing map: {e}")
-
-    # Render st_folium locally for tracking OR static DOM natively for security structurally scaling 
-    if not st.session_state.get("map_locked", False):
-        map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
-        
-        if map_data and map_data.get("last_clicked"):
-            if st.session_state["persistent_click"] != map_data["last_clicked"]:
-                st.session_state["persistent_click"] = map_data["last_clicked"]
-                new_c = map_data["last_clicked"]
-                st.session_state["persistent_center"] = [new_c["lat"], new_c["lng"]]
-                st.session_state["map_locked"] = True
+            st.markdown("Observation Mode: The map is locked for stable UI interaction.")
+            if st.button("Unlock & Select New Region", use_container_width=True):
+                st.session_state["map_locked"] = False
+                st.session_state["persistent_click"] = None
+                st.session_state["selected_unesco_site_id"] = None
                 st.rerun()
-    else:
-        m.to_streamlit(height=MAP_HEIGHT)
-
-# --- Dynamic Legends Area ---
-with col_stats:
-    st.subheader("Interactive Indicator Legends")
-    st.markdown("Use the classifications below to interpret the satellite spectral maps mathematically.")
-
-    if layer_selection == "True Color":
-        st.info("True Color visualizes standard human-visible satellite reflections completely unmodified.")
-    else:
-        st.markdown(f"#### Processing Output: {layer_selection}")
+                
+        click_pt = st.session_state["persistent_click"]
         
-        # Determine continuous legend properties
-        if layer_selection == "NDVI":
-            c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
-        elif layer_selection == "LST":
-            c_min, c_max, c_pal = 20.0, 45.0, "blue, yellow, red"
-        elif layer_selection == "NDBI":
-            c_min, c_max, c_pal = -1.0, 1.0, "green, yellow, red"
-        elif layer_selection == "NDMI":
-            c_min, c_max, c_pal = -1.0, 1.0, "brown, yellow, blue"
-        elif layer_selection == "NDWI":
-            c_min, c_max, c_pal = -1.0, 1.0, "brown, white, blue"
-        elif layer_selection == "MNDWI":
-            c_min, c_max, c_pal = -1.0, 1.0, "brown, white, cyan"
-        elif layer_selection in ["EVI", "SAVI"]:
-            c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
+        # Initialize Map preserving the exact local user viewpoint safely
+        m = foliumap.Map(center=st.session_state["persistent_center"], zoom=st.session_state["persistent_zoom"], basemap=DEFAULT_BASEMAP)
+            
+        folium.plugins.Geocoder().add_to(m)
+        try:
+            if not click_pt:
+                st.info("Awaiting interaction. Maps will load satellite data only after a coordinate is selected.")
+            else:
+                pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
+                roi = pt.buffer(5000).bounds()
+                
+                baseline_img = get_annual_median(baseline_year, data_source).clip(roi)
+                comp_img = get_annual_median(comparison_year, data_source).clip(roi)
+            
+                if layer_selection == "NDVI":
+                    vis_params = {'bands': ['NDVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
+                    def fetch_url(img): 
+                        return img.getMapId(vis_params)['tile_fetcher'].url_format
+                elif layer_selection == "LST" and data_source == "Landsat (30m)":
+                    vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
+                    baseline_img = calculate_manual_lst(baseline_img)
+                    comp_img = calculate_manual_lst(comp_img)
+                    def fetch_url(img):
+                        return img.getMapId(vis_params)['tile_fetcher'].url_format
+                else:
+                    if layer_selection == "True Color":
+                        if data_source == "Landsat (30m)":
+                            vis_params = {'bands': ['SR_B4', 'SR_B3', 'SR_B2'], 'min': 0.0, 'max': 0.3}
+                        else:
+                            vis_params = {'bands': ['B4', 'B3', 'B2'], 'min': 0.0, 'max': 0.3}
+                    elif layer_selection == "NDBI":
+                        vis_params = {'bands': ['NDBI'], 'min': -1.0, 'max': 1.0, 'palette': ['green', 'yellow', 'red']}
+                    elif layer_selection == "NDMI":
+                        vis_params = {'bands': ['NDMI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'yellow', 'blue']}
+                    elif layer_selection == "NDWI":
+                        vis_params = {'bands': ['NDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'blue']}
+                    elif layer_selection == "MNDWI":
+                        vis_params = {'bands': ['MNDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'cyan']}
+                    elif layer_selection == "EVI":
+                        vis_params = {'bands': ['EVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
+                    elif layer_selection == "SAVI":
+                        vis_params = {'bands': ['SAVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
+                    elif layer_selection == "LST":
+                        vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
+                    
+                    def fetch_url(img):
+                        return img.getMapId(vis_params)['tile_fetcher'].url_format
+    
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    f_base = executor.submit(fetch_url, baseline_img)
+                    f_comp = executor.submit(fetch_url, comp_img)
+                    left_url = f_base.result()
+                    right_url = f_comp.result()
+    
+                m.split_map(left_layer=left_url, right_layer=right_url)
+        except Exception as e:
+            st.error(f"Error drawing map: {e}")
+    
+        # Render st_folium locally for tracking OR static DOM natively for security structurally scaling 
+        if not st.session_state.get("map_locked", False):
+            map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
+            
+            if map_data and map_data.get("last_clicked"):
+                if st.session_state["persistent_click"] != map_data["last_clicked"]:
+                    st.session_state["persistent_click"] = map_data["last_clicked"]
+                    new_c = map_data["last_clicked"]
+                    st.session_state["persistent_center"] = [new_c["lat"], new_c["lng"]]
+                    st.session_state["map_locked"] = True
+                    st.rerun()
         else:
-            c_min, c_max, c_pal = -1.0, 1.0, "black, white"
+            m.to_streamlit(height=MAP_HEIGHT)
+    
+    # --- Dynamic Legends Area ---
+    with col_stats:
+        st.subheader("Interactive Indicator Legends")
+        st.markdown("Use the classifications below to interpret the satellite spectral maps mathematically.")
+    
+        if layer_selection == "True Color":
+            st.info("True Color visualizes standard human-visible satellite reflections completely unmodified.")
+        else:
+            st.markdown(f"#### Processing Output: {layer_selection}")
+            
+            # Determine continuous legend properties
+            if layer_selection == "NDVI":
+                c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
+            elif layer_selection == "LST":
+                c_min, c_max, c_pal = 20.0, 45.0, "blue, yellow, red"
+            elif layer_selection == "NDBI":
+                c_min, c_max, c_pal = -1.0, 1.0, "green, yellow, red"
+            elif layer_selection == "NDMI":
+                c_min, c_max, c_pal = -1.0, 1.0, "brown, yellow, blue"
+            elif layer_selection == "NDWI":
+                c_min, c_max, c_pal = -1.0, 1.0, "brown, white, blue"
+            elif layer_selection == "MNDWI":
+                c_min, c_max, c_pal = -1.0, 1.0, "brown, white, cyan"
+            elif layer_selection in ["EVI", "SAVI"]:
+                c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
+            else:
+                c_min, c_max, c_pal = -1.0, 1.0, "black, white"
+    
+            st.markdown(f"""
+            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0;">
+                <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
+                <div style="width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);"></div>
+                <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # --- Full Width Footer (Documentation) ---
+    st.markdown("---")
+    st.subheader("📚 Spectral Indices Documentation")
+    st.markdown("""
+    This dashboard dynamically extracts and calculates spectral indices from raw satellite data to isolate specific physical phenomena on the Earth's surface.
+    
+    | Index | Name | Real-World Application & Interpretation |
+    | :--- | :--- | :--- |
+    | **NDVI** | Normalized Difference Vegetation Index | Measures the density and health of green vegetation. High values (green) indicate dense, healthy forests or crops, while low values (red) indicate barren land or concrete. |
+    | **NDBI** | Normalized Difference Built-up Index | Highlights urban infrastructure. High values (red) indicate dense concrete, asphalt, or bare soil, while low values (green) indicate vegetation or water. |
+    | **NDMI** | Normalized Difference Moisture Index | Detects moisture levels within vegetation. High values (blue) indicate high canopy water content, while low values (brown) indicate water stress or drought. |
+    | **NDWI** | Normalized Difference Water Index | Identifies open water bodies. High values (blue) indicate rivers, lakes, or oceans, while low values (brown) indicate dry land. |
+    | **MNDWI** | Modified NDWI | An enhanced version of NDWI that uses the Shortwave Infrared band to better distinguish open water from built-up urban features, suppressing noise inside cities. |
+    | **EVI** | Enhanced Vegetation Index | Similar to NDVI but mathematically corrected for atmospheric conditions and canopy background noise. Excellent for mapping extremely dense rainforests where NDVI normally saturates. |
+    | **SAVI** | Soil Adjusted Vegetation Index | A vegetation index that incorporates a soil brightness correction factor. Ideal for arid, dry, or sparsely vegetated regions where bare soil interferes with standard NDVI readings. |
+    | **LST** | Land Surface Temperature | Estimates the actual temperature of the Earth's surface (in °C) by calculating the thermal infrared emissions captured specifically by Landsat 8/9 satellites. |
+    """)
+    
 
-        st.markdown(f"""
-        <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0;">
-            <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
-            <div style="width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);"></div>
-            <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# --- Full Width Footer (Documentation) ---
-st.markdown("---")
-st.subheader("📚 Spectral Indices Documentation")
-st.markdown("""
-This dashboard dynamically extracts and calculates spectral indices from raw satellite data to isolate specific physical phenomena on the Earth's surface.
-
-| Index | Name | Real-World Application & Interpretation |
-| :--- | :--- | :--- |
-| **NDVI** | Normalized Difference Vegetation Index | Measures the density and health of green vegetation. High values (green) indicate dense, healthy forests or crops, while low values (red) indicate barren land or concrete. |
-| **NDBI** | Normalized Difference Built-up Index | Highlights urban infrastructure. High values (red) indicate dense concrete, asphalt, or bare soil, while low values (green) indicate vegetation or water. |
-| **NDMI** | Normalized Difference Moisture Index | Detects moisture levels within vegetation. High values (blue) indicate high canopy water content, while low values (brown) indicate water stress or drought. |
-| **NDWI** | Normalized Difference Water Index | Identifies open water bodies. High values (blue) indicate rivers, lakes, or oceans, while low values (brown) indicate dry land. |
-| **MNDWI** | Modified NDWI | An enhanced version of NDWI that uses the Shortwave Infrared band to better distinguish open water from built-up urban features, suppressing noise inside cities. |
-| **EVI** | Enhanced Vegetation Index | Similar to NDVI but mathematically corrected for atmospheric conditions and canopy background noise. Excellent for mapping extremely dense rainforests where NDVI normally saturates. |
-| **SAVI** | Soil Adjusted Vegetation Index | A vegetation index that incorporates a soil brightness correction factor. Ideal for arid, dry, or sparsely vegetated regions where bare soil interferes with standard NDVI readings. |
-| **LST** | Land Surface Temperature | Estimates the actual temperature of the Earth's surface (in °C) by calculating the thermal infrared emissions captured specifically by Landsat 8/9 satellites. |
-""")
-
+elif catalog_mode == "Timelapse Viewer":
+    st.subheader("Satellite Image Timelapse")
+    st.markdown("Observe temporal surface dynamics dynamically through Landsat archives.")
+    
+    click_pt = st.session_state.get("persistent_click")
+    if not click_pt:
+        st.info("Please switch to **Indices Analysis** to select a UNESCO site or coordinate first, then return here.")
+    else:
+        st.success(f"Locked on coordinates: {round(click_pt['lat'],4)}, {round(click_pt['lng'],4)}. Generating a 5km ROI timelapse.")
+        
+        band_map = {
+            "True Color (Red, Green, Blue)": ["Red", "Green", "Blue"],
+            "Color Infrared (NIR, Red, Green)": ["NIR", "Red", "Green"],
+            "SWIR (SWIR2, SWIR1, Red)": ["SWIR2", "SWIR1", "Red"]
+        }
+        bands = band_map[tl_bands]
+        
+        gif_path = "scratch_timelapse.gif"
+        
+        if run_tl:
+            roi = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]]).buffer(5000).bounds()
+            with st.spinner("Compiling Earth Engine Timelapse Archive... This may take a minute."):
+                try:
+                    if os.path.exists(gif_path):
+                        os.remove(gif_path)
+                    geemap.landsat_timelapse(
+                        roi,
+                        out_gif=gif_path,
+                        start_year=tl_start_year,
+                        end_year=tl_end_year,
+                        start_date="01-01",
+                        end_date="12-31",
+                        bands=bands,
+                        frames_per_second=tl_fps,
+                        title="Landsat Timelapse",
+                        add_text=True,
+                        text_xy=("3%", "5%"),
+                        text_sequence=list(range(tl_start_year, tl_end_year + 1)),
+                        font_size=30,
+                        font_color="white",
+                        progress_bar_color="blue",
+                        mp4=False
+                    )
+                except Exception as e:
+                    st.error(f"Timelapse Generation Failed: {e}")
+        
+        if os.path.exists(gif_path):
+            # Extract frames and pass to HTML
+            try:
+                with Image.open(gif_path) as img:
+                    frames = [frame.copy() for frame in ImageSequence.Iterator(img)]
+                
+                b64_frames = []
+                import io
+                for frame in frames:
+                    buf = io.BytesIO()
+                    # Convert to RGB to ensure JPEG compatibility
+                    frame = frame.convert('RGB')
+                    frame.save(buf, format="JPEG")
+                    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                    b64_frames.append(f"data:image/jpeg;base64,{b64}")
+                
+                # Render custom scrubber!
+                st.markdown("### Interactive Scrubber")
+                html_code = f"""
+                <div style="width: 100%; max-width: 800px; margin: 0 auto; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <img id="tl-frame" src="{b64_frames[0]}" style="width: 100%; border-radius: 4px; display: block;" />
+                    <div style="display: flex; align-items: center; margin-top: 15px; gap: 15px;">
+                        <button id="tl-play" style="background: #111827; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Play</button>
+                        <input type="range" id="tl-slider" min="0" max="{len(b64_frames)-1}" value="0" style="flex-grow: 1; cursor: pointer;">
+                        <span id="tl-year-badge" style="font-family: monospace; font-weight: bold; font-size: 1.1rem; color: #4B5563;">{tl_start_year}</span>
+                    </div>
+                </div>
+                
+                <script>
+                    const frames = {b64_frames};
+                    const startYear = {tl_start_year};
+                    const img = document.getElementById('tl-frame');
+                    const slider = document.getElementById('tl-slider');
+                    const btn = document.getElementById('tl-play');
+                    const badge = document.getElementById('tl-year-badge');
+                    
+                    let playing = false;
+                    let timer = null;
+                    const fps = {tl_fps};
+                    const interval = 1000 / fps;
+                    
+                    function updateFrame(idx) {{
+                        img.src = frames[idx];
+                        badge.innerText = startYear + parseInt(idx);
+                    }}
+                    
+                    slider.addEventListener('input', function() {{
+                        updateFrame(this.value);
+                    }});
+                    
+                    function step() {{
+                        let nextIdx = (parseInt(slider.value) + 1) % frames.length;
+                        slider.value = nextIdx;
+                        updateFrame(nextIdx);
+                    }}
+                    
+                    btn.addEventListener('click', function() {{
+                        playing = !playing;
+                        if (playing) {{
+                            btn.innerText = "Pause";
+                            btn.style.background = "#DC2626";
+                            timer = setInterval(step, interval);
+                        }} else {{
+                            btn.innerText = "Play";
+                            btn.style.background = "#111827";
+                            clearInterval(timer);
+                        }}
+                    }});
+                </script>
+                """
+                st.components.v1.html(html_code, height=600)
+            except Exception as e:
+                st.error(f"Error parsing GIF frames: {e}")
