@@ -1,6 +1,6 @@
 import streamlit as st
 import base64
-from PIL import Image, ImageSequence
+from PIL import Image, ImageSequence, ImageDraw, ImageFont
 import os
 import geemap
 from streamlit_folium import st_folium
@@ -631,11 +631,7 @@ elif catalog_mode == "Timelapse Viewer":
                         bands=bands,
                         frames_per_second=tl_fps,
                         title="Landsat Timelapse",
-                        add_text=True,
-                        text_xy=("3%", "5%"),
-                        text_sequence=list(range(tl_start_year, tl_end_year + 1)),
-                        font_size=30,
-                        font_color="white",
+                        add_text=False,  # Bypassing ffmpeg requirement natively!
                         progress_bar_color="blue",
                         mp4=False
                     )
@@ -650,10 +646,29 @@ elif catalog_mode == "Timelapse Viewer":
                 
                 b64_frames = []
                 import io
-                for frame in frames:
+                
+                # Burn text natively with Pillow to avoid ffmpeg crashes on Windows
+                years = list(range(tl_start_year, tl_end_year + 1))
+                
+                for idx, frame in enumerate(frames):
                     buf = io.BytesIO()
-                    # Convert to RGB to ensure JPEG compatibility
                     frame = frame.convert('RGB')
+                    
+                    # Draw Year Overlay directly
+                    draw = ImageDraw.Draw(frame)
+                    
+                    # Try to use a default truetype font if available, fallback to default
+                    try:
+                        font = ImageFont.truetype("arial.ttf", 36)
+                    except Exception:
+                        font = ImageFont.load_default()
+                        
+                    year_text = str(years[min(idx, len(years)-1)])
+                    
+                    # Optional: Draw shadow for visibility
+                    draw.text((22, 22), year_text, font=font, fill="black")
+                    draw.text((20, 20), year_text, font=font, fill="white")
+                    
                     frame.save(buf, format="JPEG")
                     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                     b64_frames.append(f"data:image/jpeg;base64,{b64}")
