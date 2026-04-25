@@ -1,0 +1,10 @@
+streamlit
+earthengine-api
+leafmap
+folium
+streamlit-folium
+plotly
+pandas
+tifffile
+numpy
+Pillow
