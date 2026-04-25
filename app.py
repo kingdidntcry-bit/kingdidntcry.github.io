@@ -183,6 +183,9 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
     if catalog_mode == "Indices Analysis":
         st.subheader("Data Source")
         data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
+        
+        st.subheader("Analysis Parameters")
+        roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
     
         st.subheader("Temporal Windows (Annual Median)")
         baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
@@ -673,11 +676,14 @@ elif catalog_mode == "Timelapse Viewer":
                     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                     b64_frames.append(f"data:image/jpeg;base64,{b64}")
                 
+                import json
+                frames_json = json.dumps(b64_frames)
+                
                 # Render custom scrubber!
                 st.markdown("### Interactive Scrubber")
                 html_code = f"""
                 <div style="width: 100%; max-width: 800px; margin: 0 auto; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <img id="tl-frame" src="{b64_frames[0]}" style="width: 100%; border-radius: 4px; display: block;" />
+                    <img id="tl-frame" src="{b64_frames[0]}" style="width: 100%; max-height: 450px; object-fit: contain; border-radius: 4px; display: block;" />
                     <div style="display: flex; align-items: center; margin-top: 15px; gap: 15px;">
                         <button id="tl-play" style="background: #111827; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Play</button>
                         <input type="range" id="tl-slider" min="0" max="{len(b64_frames)-1}" value="0" style="flex-grow: 1; cursor: pointer;">
@@ -686,7 +692,7 @@ elif catalog_mode == "Timelapse Viewer":
                 </div>
                 
                 <script>
-                    const frames = {b64_frames};
+                    const frames = {frames_json};
                     const startYear = {tl_start_year};
                     const img = document.getElementById('tl-frame');
                     const slider = document.getElementById('tl-slider');
@@ -727,6 +733,6 @@ elif catalog_mode == "Timelapse Viewer":
                     }});
                 </script>
                 """
-                st.components.v1.html(html_code, height=600)
+                st.components.v1.html(html_code, height=700)
             except Exception as e:
                 st.error(f"Error parsing GIF frames: {e}")
