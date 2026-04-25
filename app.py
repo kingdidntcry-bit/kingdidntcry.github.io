@@ -443,7 +443,7 @@ with col_map:
                 st.rerun()
 
     if not st.session_state.get("map_locked", False):
-        st.markdown("Select a UNESCO place above, or click the map to evaluate a 10km UNESCO Heritage region.")
+        st.markdown("Select a UNESCO place above, or click the map to evaluate a 5km UNESCO Heritage region.")
     else:
         st.markdown("Observation Mode: The map is locked for stable UI interaction.")
         if st.button("Unlock & Select New Region", use_container_width=True):
@@ -463,19 +463,17 @@ with col_map:
             st.info("Awaiting interaction. Maps will load satellite data only after a coordinate is selected.")
         else:
             pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
-            roi = pt.buffer(10000).bounds()
+            roi = pt.buffer(5000).bounds()
             
             baseline_img = get_annual_median(baseline_year, data_source).clip(roi)
             comp_img = get_annual_median(comparison_year, data_source).clip(roi)
         
             if layer_selection == "NDVI":
                 vis_params = {'bands': ['NDVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['red', 'yellow', 'green'], label="NDVI Index")
                 def fetch_url(img): 
                     return img.getMapId(vis_params)['tile_fetcher'].url_format
             elif layer_selection == "LST" and data_source == "Landsat (30m)":
                 vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
-                m.add_colormap(width=4.0, height=0.25, vmin=20.0, vmax=45.0, palette=['blue', 'yellow', 'red'], label="LST (°C)")
                 baseline_img = calculate_manual_lst(baseline_img)
                 comp_img = calculate_manual_lst(comp_img)
                 def fetch_url(img):
@@ -488,25 +486,18 @@ with col_map:
                         vis_params = {'bands': ['B4', 'B3', 'B2'], 'min': 0.0, 'max': 0.3}
                 elif layer_selection == "NDBI":
                     vis_params = {'bands': ['NDBI'], 'min': -1.0, 'max': 1.0, 'palette': ['green', 'yellow', 'red']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['green', 'yellow', 'red'], label="NDBI Index")
                 elif layer_selection == "NDMI":
                     vis_params = {'bands': ['NDMI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'yellow', 'blue']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['brown', 'yellow', 'blue'], label="NDMI Index")
                 elif layer_selection == "NDWI":
                     vis_params = {'bands': ['NDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'blue']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['brown', 'white', 'blue'], label="NDWI Index")
                 elif layer_selection == "MNDWI":
                     vis_params = {'bands': ['MNDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'cyan']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['brown', 'white', 'cyan'], label="MNDWI Index")
                 elif layer_selection == "EVI":
                     vis_params = {'bands': ['EVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['red', 'yellow', 'green'], label="EVI Index")
                 elif layer_selection == "SAVI":
                     vis_params = {'bands': ['SAVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=-1.0, vmax=1.0, palette=['red', 'yellow', 'green'], label="SAVI Index")
                 elif layer_selection == "LST":
                     vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
-                    m.add_colormap(width=4.0, height=0.25, vmin=20.0, vmax=45.0, palette=['blue', 'yellow', 'red'], label="LST (°C)")
                 
                 def fetch_url(img):
                     return img.getMapId(vis_params)['tile_fetcher'].url_format
@@ -544,7 +535,32 @@ with col_stats:
         st.info("True Color visualizes standard human-visible satellite reflections completely unmodified.")
     else:
         st.markdown(f"#### Processing Output: {layer_selection}")
-        st.info("Continuous mapping outputs are rendered directly into the viewport legend overlays.")
+        
+        # Determine continuous legend properties
+        if layer_selection == "NDVI":
+            c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
+        elif layer_selection == "LST":
+            c_min, c_max, c_pal = 20.0, 45.0, "blue, yellow, red"
+        elif layer_selection == "NDBI":
+            c_min, c_max, c_pal = -1.0, 1.0, "green, yellow, red"
+        elif layer_selection == "NDMI":
+            c_min, c_max, c_pal = -1.0, 1.0, "brown, yellow, blue"
+        elif layer_selection == "NDWI":
+            c_min, c_max, c_pal = -1.0, 1.0, "brown, white, blue"
+        elif layer_selection == "MNDWI":
+            c_min, c_max, c_pal = -1.0, 1.0, "brown, white, cyan"
+        elif layer_selection in ["EVI", "SAVI"]:
+            c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
+        else:
+            c_min, c_max, c_pal = -1.0, 1.0, "black, white"
+
+        st.markdown(f"""
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0;">
+            <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
+            <div style="width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);"></div>
+            <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- Full Width Footer (Documentation) ---
 st.markdown("---")
