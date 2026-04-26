@@ -9,6 +9,7 @@ import datetime
 import folium.plugins
 import leafmap.foliumap as foliumap
 import requests
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 # --- Setup & Initialize ---
@@ -314,7 +315,7 @@ def get_sentinel_collection(start_date, end_date):
         
         return image.addBands(optical_bands, None, True).addBands([ndvi, ndbi, ndmi, ndwi, mndwi, evi, savi]).updateMask(mask)
         
-    return ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterDate(start_date, end_date).map(prep_sentinel)
+    return ee.ImageCollection("COPERNICUS/S2_SR").filterDate(start_date, end_date).map(prep_sentinel)
 
 def get_annual_median(target_year, source):
     start = f'{target_year}-01-01'
@@ -353,58 +354,79 @@ def calculate_manual_lst(img):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_unesco_sites():
+    local_file = "heritage_sites.json"
+    
+    # 1. Verification Logic: Check local file first
+    if os.path.exists(local_file) and os.path.getsize(local_file) > 0:
+        try:
+            with open(local_file, "r", encoding="utf-8") as f:
+                sites = json.load(f)
+                if sites:
+                    return sites
+        except Exception as e:
+            st.warning(f"Failed to load local heritage_sites.json: {e}. Falling back to API.")
+
+    # 2. Call external API if site missing or file empty
     sites = []
     limit = 100
     offset = 0
     select_fields = "id_no,name_en,name_fr,states_names,coordinates"
 
-    while True:
-        response = requests.get(
-            UNESCO_WHC_API_URL,
-            params={"select": select_fields, "limit": limit, "offset": offset},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        records = payload.get("records", [])
-        if not records:
-            break
-
-        for item in records:
-            fields = item.get("record", {}).get("fields", {})
-            site_name = fields.get("name_en") or fields.get("name_fr") or "Unknown Site"
-            states_names = fields.get("states_names") or []
-            if isinstance(states_names, list):
-                country = ", ".join(states_names)
-            else:
-                country = str(states_names) if states_names else "Unknown Country"
-
-            coords = fields.get("coordinates") or {}
-            lat = coords.get("lat")
-            lng = coords.get("lon")
-            if lat is None or lng is None:
-                continue
-
-            site_id = str(fields.get("id_no") or f"{site_name}|{country}|{lat}|{lng}")
-            sites.append(
-                {
-                    "id": site_id,
-                    "site": site_name,
-                    "country": country,
-                    "lat": float(lat),
-                    "lng": float(lng),
-                }
+    try:
+        while True:
+            response = requests.get(
+                UNESCO_WHC_API_URL,
+                params={"select": select_fields, "limit": limit, "offset": offset},
+                timeout=30,
             )
+            response.raise_for_status()
+            payload = response.json()
+            records = payload.get("records", [])
+            if not records:
+                break
 
-        if len(records) < limit:
-            break
-        offset += limit
+            for item in records:
+                fields = item.get("record", {}).get("fields", {})
+                site_name = fields.get("name_en") or fields.get("name_fr") or "Unknown Site"
+                states_names = fields.get("states_names") or []
+                if isinstance(states_names, list):
+                    country = ", ".join(states_names)
+                else:
+                    country = str(states_names) if states_names else "Unknown Country"
 
-    # Deduplicate and sort for stable UI ordering.
-    deduped = {}
-    for site in sites:
-        deduped[site["id"]] = site
-    return sorted(deduped.values(), key=lambda s: (s["country"], s["site"]))
+                coords = fields.get("coordinates") or {}
+                lat = coords.get("lat")
+                lng = coords.get("lon")
+                if lat is None or lng is None:
+                    continue
+
+                site_id = str(fields.get("id_no") or f"{site_name}|{country}|{lat}|{lng}")
+                sites.append(
+                    {
+                        "id": site_id,
+                        "site": site_name,
+                        "country": country,
+                        "lat": float(lat),
+                        "lng": float(lng),
+                    }
+                )
+
+            if len(records) < limit:
+                break
+            offset += limit
+
+        # Deduplicate and sort
+        deduped = {site["id"]: site for site in sites}
+        final_sites = sorted(deduped.values(), key=lambda s: (s["country"], s["site"]))
+        
+        # 3. Data Storage: Save to root directory
+        with open(local_file, "w", encoding="utf-8") as f:
+            json.dump(final_sites, f, indent=4)
+            
+        return final_sites
+    except Exception as e:
+        st.error(f"Failed to fetch UNESCO sites from API: {e}")
+        return []
 
 
 # --- Top App Layout (Map & Classification) ---
