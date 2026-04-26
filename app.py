@@ -368,7 +368,7 @@ def calculate_manual_lst(img):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_unesco_sites():
-    local_file = "heritage_sites.json"
+    local_file = "data/heritage_sites.json"
     
     # 1. Verification Logic: Check local file first
     if os.path.exists(local_file) and os.path.getsize(local_file) > 0:
