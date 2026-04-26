@@ -170,13 +170,27 @@ run_ml = False
 
 with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
     try:
-        ee.Initialize(project=EE_PROJECT)
-    except Exception:
+        # 1. Try Service Account from Secrets (Streamlit Cloud best practice)
+        if "EARTHENGINE_SERVICE_ACCOUNT" in st.secrets:
+            sa_info = st.secrets["EARTHENGINE_SERVICE_ACCOUNT"]
+            if isinstance(sa_info, str):
+                import json
+                sa_info = json.loads(sa_info)
+            
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(sa_info)
+            ee.Initialize(credentials=credentials, project=EE_PROJECT)
+        else:
+            # 2. Fallback to local user auth
+            ee.Initialize(project=EE_PROJECT)
+    except Exception as e:
         try:
+            # 3. Interactive fallback (Local only)
             ee.Authenticate()
             ee.Initialize(project=EE_PROJECT)
         except Exception:
-            st.error(f"Failed to authenticate with project '{EE_PROJECT}'. Ensure your project exists and Earth Engine API is enabled.")
+            st.error(f"Failed to authenticate with project '{EE_PROJECT}'. Error: {e}")
+            st.info("Deployment Tip: For Streamlit Cloud, add your GCP Service Account JSON to Streamlit Secrets as EARTHENGINE_SERVICE_ACCOUNT.")
             st.stop()
             
     current_y = datetime.date.today().year
