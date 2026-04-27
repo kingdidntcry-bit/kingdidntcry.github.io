@@ -139,8 +139,14 @@ st.markdown("""
         height: 100%;
         overflow: hidden;
     }
-    [data-testid="stHeader"], [data-testid="stToolbar"] {
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+    [data-testid="stToolbar"] {
         display: none;
+    }
+    [data-testid="collapsedControl"] {
+        display: block !important;
     }
     .main .block-container {
         max-width: 100%;
