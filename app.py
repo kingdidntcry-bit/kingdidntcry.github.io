@@ -220,12 +220,12 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
             
     current_y = datetime.date.today().year
 
+    st.subheader("General Parameters")
+    roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
+
     if catalog_mode == "Indices Analysis":
         st.subheader("Data Source")
         data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
-        
-        st.subheader("Analysis Parameters")
-        roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
     
         st.subheader("Temporal Windows (Annual Median)")
         baseline_year = st.selectbox("Baseline Year", range(2015, current_y + 1), index=max(0, current_y - 2015 - 2))
