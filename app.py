@@ -625,36 +625,36 @@ if catalog_mode == "Indices Analysis":
                     st.session_state["map_locked"] = True
                     st.rerun()
         else:
-                        m.to_streamlit(height=MAP_HEIGHT)
+            m.to_streamlit(height=MAP_HEIGHT)
             
-            # --- Export Functionality ---
-            if click_pt:
-                st.markdown("### 📥 Export Region as GeoTIFF")
-                dl_col1, dl_col2 = st.columns(2)
-                
-                # Determine export bands
-                if layer_selection == "True Color":
-                    exp_bands = ['SR_B4', 'SR_B3', 'SR_B2'] if data_source == "Landsat (30m)" else ['B4', 'B3', 'B2']
-                else:
-                    exp_bands = [layer_selection]
-                
-                # Baseline Export
-                with dl_col1:
-                    base_dl_img = baseline_img.select(exp_bands)
-                    base_url = get_image_download_url(base_dl_img, f"terrascan_{layer_selection}_{baseline_year}", data_source)
-                    if base_url:
-                        st.link_button(f"Download {baseline_year} (Left)", base_url, use_container_width=True)
-                    else:
-                        st.button(f"Download {baseline_year} (Left)", disabled=True, use_container_width=True)
-                
-                # Comparison Export
-                with dl_col2:
-                    comp_dl_img = comp_img.select(exp_bands)
-                    comp_url = get_image_download_url(comp_dl_img, f"terrascan_{layer_selection}_{comparison_year}", data_source)
-                    if comp_url:
-                        st.link_button(f"Download {comparison_year} (Right)", comp_url, use_container_width=True)
-                    else:
-                        st.button(f"Download {comparison_year} (Right)", disabled=True, use_container_width=True)
+        # --- Export Functionality ---
+        if click_pt:
+            st.markdown("### 📥 Export Region as GeoTIFF")
+        dl_col1, dl_col2 = st.columns(2)
+        
+        # Determine export bands
+        if layer_selection == "True Color":
+            exp_bands = ['SR_B4', 'SR_B3', 'SR_B2'] if data_source == "Landsat (30m)" else ['B4', 'B3', 'B2']
+        else:
+            exp_bands = [layer_selection]
+        
+        # Baseline Export
+        with dl_col1:
+            base_dl_img = baseline_img.select(exp_bands)
+            base_url = get_image_download_url(base_dl_img, f"terrascan_{layer_selection}_{baseline_year}", data_source)
+            if base_url:
+                st.link_button(f"Download {baseline_year} (Left)", base_url, use_container_width=True)
+            else:
+                st.button(f"Download {baseline_year} (Left)", disabled=True, use_container_width=True)
+        
+        # Comparison Export
+        with dl_col2:
+            comp_dl_img = comp_img.select(exp_bands)
+            comp_url = get_image_download_url(comp_dl_img, f"terrascan_{layer_selection}_{comparison_year}", data_source)
+            if comp_url:
+                st.link_button(f"Download {comparison_year} (Right)", comp_url, use_container_width=True)
+            else:
+                st.button(f"Download {comparison_year} (Right)", disabled=True, use_container_width=True)
     
     # --- Dynamic Legends Area ---
     with col_stats:
