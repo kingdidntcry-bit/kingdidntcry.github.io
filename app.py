@@ -306,12 +306,12 @@ def get_landsat_collection(start_date, end_date):
 
 def get_sentinel_collection(start_date, end_date):
     def prep_sentinel(image):
-        qa = image.select('QA60')
-        cloud_bit_mask = 1 << 10
-        cirrus_bit_mask = 1 << 11
-        mask = qa.bitwiseAnd(cloud_bit_mask).eq(0).And(
-            qa.bitwiseAnd(cirrus_bit_mask).eq(0)
-        )
+        # Use SCL (Scene Classification Layer) for robust cloud/shadow masking
+        # SCL is standard for Sentinel-2 Level-2A (Surface Reflectance)
+        scl = image.select('SCL')
+        # Masking: 3 (Shadows), 8 (Med Prob Cloud), 9 (High Prob Cloud), 10 (Cirrus)
+        mask = scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10))
+        
         optical_bands = image.select(['B2', 'B3', 'B4', 'B8', 'B11', 'B12']).divide(10000)
         
         # Spectral indices (Awesome Spectral Indices standard forms).
@@ -354,7 +354,7 @@ def get_sentinel_collection(start_date, end_date):
         
         return image.addBands(optical_bands, None, True).addBands([ndvi, ndbi, ndmi, ndwi, mndwi, evi, savi]).updateMask(mask)
         
-    return ee.ImageCollection("COPERNICUS/S2_SR").filterDate(start_date, end_date).map(prep_sentinel)
+    return ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterDate(start_date, end_date).map(prep_sentinel)
 
 def get_annual_median(target_year, source):
     start = f'{target_year}-01-01'
