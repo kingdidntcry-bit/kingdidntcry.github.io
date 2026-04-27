@@ -659,19 +659,7 @@ if catalog_mode == "Indices Analysis":
         try:
             render_export_buttons(click_pt, baseline_img, comp_img, layer_selection, baseline_year, comparison_year, data_source)
         except: pass
-            
-        
-            else:
-                st.button(f"Download {baseline_year} (Left)", disabled=True, use_container_width=True)
-        
-        # Comparison Export
-        with dl_col2:
-            comp_dl_img = comp_img.select(exp_bands)
-            comp_url = get_image_download_url(comp_dl_img, f"terrascan_{layer_selection}_{comparison_year}", data_source)
-            if comp_url:
-                st.link_button(f"Download {comparison_year} (Right)", comp_url, use_container_width=True)
-            else:
-                st.button(f"Download {comparison_year} (Right)", disabled=True, use_container_width=True)
+    
     
     # --- Dynamic Legends Area ---
     with col_stats:
