@@ -172,10 +172,24 @@ try:
     # 1. Try Service Account from Secrets (Streamlit Cloud best practice)
     if "EARTHENGINE_SERVICE_ACCOUNT" in st.secrets:
         sa_info = st.secrets["EARTHENGINE_SERVICE_ACCOUNT"]
+        
+        # Robust handling for string vs dict secrets
         if isinstance(sa_info, str):
             import json
-            sa_info = json.loads(sa_info)
+            try:
+                # Try parsing as JSON first
+                sa_info = json.loads(sa_info)
+            except Exception:
+                # If it's a string but not JSON, it might be the raw private key? 
+                # (Unlikely, but we'll try to convert it if it looks like one)
+                pass
         
+        # Convert SecretSubDict to regular dict if needed
+        if hasattr(sa_info, "to_dict"):
+            sa_info = sa_info.to_dict()
+        elif not isinstance(sa_info, dict) and hasattr(sa_info, "items"):
+            sa_info = dict(sa_info.items())
+
         from google.oauth2 import service_account
         credentials = service_account.Credentials.from_service_account_info(sa_info)
         ee.Initialize(credentials=credentials, project=EE_PROJECT)
@@ -193,11 +207,12 @@ except Exception as e:
         st.markdown("""
         To run this app on the web, you need to provide a Google Cloud Service Account key in the Streamlit Secrets.
         
-        1. Create a Service Account in GCP with Earth Engine access.
-        2. Copy the JSON key content.
-        3. Paste it into **Streamlit Cloud -> Settings -> Secrets** as `EARTHENGINE_SERVICE_ACCOUNT`.
+        **Action Required:**
+        1. Go to your Streamlit Dashboard.
+        2. Open **Settings -> Secrets**.
+        3. Paste the TOML table format I provided.
         
-        Refer to the [README](https://github.com/kingdidntcry-bit/TerraScan#2-earth-engine-authentication-service-account) for details.
+        Current Error: `{e}`
         """)
         st.stop()
 
