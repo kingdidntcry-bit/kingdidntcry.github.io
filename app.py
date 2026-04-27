@@ -529,6 +529,8 @@ if catalog_mode == "Indices Analysis":
                 st.session_state["map_locked"] = False
                 st.session_state["persistent_click"] = None
                 st.session_state["selected_unesco_site_id"] = None
+                if "unesco_site_picker" in st.session_state:
+                    st.session_state["unesco_site_picker"] = "Select a UNESCO place..."
                 st.rerun()
                 
         click_pt = st.session_state["persistent_click"]
@@ -542,7 +544,8 @@ if catalog_mode == "Indices Analysis":
                 st.info("Awaiting interaction. Maps will load satellite data only after a coordinate is selected.")
             else:
                 pt = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]])
-                roi = pt.buffer(5000).bounds()
+                radius_m = 5000 if roi_radius == "5 km" else 10000
+                roi = pt.buffer(radius_m).bounds()
                 
                 baseline_img = get_annual_median(baseline_year, data_source).clip(roi)
                 comp_img = get_annual_median(comparison_year, data_source).clip(roi)
@@ -680,7 +683,8 @@ elif catalog_mode == "Timelapse Viewer":
         gif_path = "scratch_timelapse.gif"
         
         if run_tl:
-            roi = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]]).buffer(5000).bounds()
+            radius_m = 5000 if roi_radius == "5 km" else 10000
+            roi = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]]).buffer(radius_m).bounds()
             with st.spinner("Compiling Earth Engine Timelapse Archive... This may take a minute."):
                 try:
                     if os.path.exists(gif_path):
