@@ -771,6 +771,7 @@ elif catalog_mode == "Timelapse Viewer":
                 # Burn text natively with Pillow to avoid ffmpeg crashes on Windows
                 years = list(range(tl_start_year, tl_end_year + 1))
                 
+                processed_frames = []
                 for idx, frame in enumerate(frames):
                     buf = io.BytesIO()
                     frame = frame.convert('RGB')
@@ -790,9 +791,23 @@ elif catalog_mode == "Timelapse Viewer":
                     draw.text((22, 22), year_text, font=font, fill="black")
                     draw.text((20, 20), year_text, font=font, fill="white")
                     
+                    # Keep for scrubber
                     frame.save(buf, format="JPEG")
                     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                     b64_frames.append(f"data:image/jpeg;base64,{b64}")
+                    
+                    # Keep for final GIF download
+                    processed_frames.append(frame)
+                
+                # Save the "Burned" GIF for download
+                if processed_frames:
+                    processed_frames[0].save(
+                        gif_path, 
+                        save_all=True, 
+                        append_images=processed_frames[1:], 
+                        duration=int(1000/tl_fps), 
+                        loop=0
+                    )
                 
                 import json
                 frames_json = json.dumps(b64_frames)
