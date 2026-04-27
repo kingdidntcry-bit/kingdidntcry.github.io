@@ -500,6 +500,11 @@ if catalog_mode == "Indices Analysis":
                 f"{site['site']} ({site['country']})": site for site in filtered_sites
             }
             site_options = ["Select a UNESCO place..."] + list(site_label_to_record.keys())
+            
+            # Reset logic to avoid StreamlitAPIException (resets state before widget instantiation)
+            if st.session_state.get("unesco_reset_pending"):
+                st.session_state["unesco_site_picker"] = "Select a UNESCO place..."
+                st.session_state["unesco_reset_pending"] = False
     
             with selector_col2:
                 selected_site_label = st.selectbox(
@@ -529,8 +534,7 @@ if catalog_mode == "Indices Analysis":
                 st.session_state["map_locked"] = False
                 st.session_state["persistent_click"] = None
                 st.session_state["selected_unesco_site_id"] = None
-                if "unesco_site_picker" in st.session_state:
-                    st.session_state["unesco_site_picker"] = "Select a UNESCO place..."
+                st.session_state["unesco_reset_pending"] = True
                 st.rerun()
                 
         click_pt = st.session_state["persistent_click"]
