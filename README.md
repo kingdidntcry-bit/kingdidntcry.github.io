@@ -1,122 +1,75 @@
 # ?? TerraScan: Geospatial Intelligence for Heritage & Conservation
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge.svg)](https://terrascan.streamlit.app/)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-green)](https://kingdidntcry-bit.github.io/)
 [![Google Earth Engine](https://img.shields.io/badge/Google%20Earth%20Engine-Active-blue)](https://earthengine.google.com/)
 
-**TerraScan** is a professional-grade geospatial dashboard designed for environmental analysts and UNESCO heritage site monitoring. By leveraging the power of **Google Earth Engine**, TerraScan provides real-time processing of satellite imagery (Landsat & Sentinel) to detect environmental changes, monitor vegetation health, and visualize historical transformations.
+**TerraScan** is a professional-grade geospatial dashboard designed for environmental analysts and UNESCO heritage site monitoring. Powered by **Google Earth Engine**, it provides real-time satellite imagery processing for change detection, vegetation health monitoring, and historical transformations.
+
+---
+
+## ?? Access the Platform
+*   **Live App (Streamlit Cloud):** [terrascan.streamlit.app](https://terrascan.streamlit.app/)
+*   **Project Homepage:** [kingdidntcry-bit.github.io](https://kingdidntcry-bit.github.io/)
 
 ---
 
 ## ? Key Features
 
 ### ?? Multi-Spectral Indices Analysis
-Compare two time periods side-by-side using a synchronized split-map interface.
 *   **NDVI (Vegetation):** Monitor forest density and agricultural health.
 *   **LST (Temperature):** Analyze urban heat islands and surface temperature trends.
 *   **NDBI (Built-up):** Track urban expansion and infrastructure growth.
 *   **Water Indices:** Detect surface water using NDWI and MNDWI.
-*   **Soil & Atmospheric Correction:** Advanced indices like EVI and SAVI.
+*   **Advanced Logic:** Supports both **Landsat (30m)** and **Sentinel-2 (10m)** datasets.
 
-### ?? Satellite Timelapse Viewer
-Generate and explore dynamic historical timelapses (1984–Present).
-*   **Custom Bands:** Choose between True Color, Color Infrared, or Shortwave Infrared.
-*   **Interactive Scrubber:** Play, pause, and manually scrub through decades of Earth's history.
-*   **High-Resolution:** Powered by the Landsat global archive.
+### ?? Satellite Timelapse Viewer (1984–Present)
+*   **Historical Archive:** Explore decades of surface change dynamically.
+*   **Interactive Scrubber:** Play, pause, and manually scrub through frames.
+*   **Custom Bands:** Support for True Color, Color Infrared, and SWIR.
 
 ### ??? UNESCO Heritage Integration
 *   Built-in global catalog of UNESCO World Heritage sites.
-*   One-click navigation to monitor specific cultural and natural landmarks.
+*   Automated region-of-interest (ROI) definition for heritage site monitoring.
 
 ---
 
 ## ??? Tech Stack
-*   **Engine:** Google Earth Engine (GEE)
-*   **Framework:** Streamlit (SPA Architecture)
+*   **Compute Engine:** Google Earth Engine (GEE)
+*   **Interface:** Streamlit (Python-based SPA)
 *   **Mapping:** Leafmap, Folium, Geemap
-*   **Data Processing:** Pandas, NumPy, ThreadPoolExecutor
-*   **Visualization:** Plotly, PIL (Advanced GIF processing)
+*   **Authentication:** Service Account (Headless) & OAuth2 (Local)
 
 ---
 
-## ?? Deployment to Streamlit Cloud
+## ?? Deployment Guide (Streamlit Cloud)
 
-TerraScan is optimized for **Streamlit Cloud** with headless authentication support.
+TerraScan is ready for one-click deployment.
 
-### 1. Repository Setup
-Ensure your repository contains:
-*   \pp.py\ (Main entry point)
-*   \equirements.txt\ (Dependencies)
-*   \data/heritage_sites.json\ (Pre-cached data)
-
-### 2. Earth Engine Authentication (Service Account)
-Since Streamlit Cloud is a server-side environment, you must use a **GCP Service Account**.
-
-1.  Go to the [GCP Console](https://console.cloud.google.com/).
-2.  Create a **Service Account** and grant it the **Earth Engine Resource Viewer** role (or similar).
-3.  Generate a **JSON Key** for the service account and download it.
-4.  In your Streamlit Cloud dashboard:
-    *   Go to **Settings** ?? **Secrets**.
-    *   Paste the content of your JSON key into a secret named \EARTHENGINE_SERVICE_ACCOUNT\:
+### Earth Engine Secrets Setup
+1.  Go to your **Streamlit Dashboard ?? Settings ?? Secrets**.
+2.  Add your Google Cloud Service Account JSON as EARTHENGINE_SERVICE_ACCOUNT.
+3.  Use the **TOML Table** format for reliability:
 
 \\\	oml
-EARTHENGINE_SERVICE_ACCOUNT = {
-  "type": "service_account",
-  "project_id": "your-project-id",
-  "private_key_id": "...",
-  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
-  "client_email": "...",
-  "client_id": "...",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "..."
-}
+[EARTHENGINE_SERVICE_ACCOUNT]
+type = "service_account"
+project_id = "your-project-id"
+private_key = \"\"\"-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+\"\"\"
+... (other fields)
 \\\
 
 ---
 
-## ?? Local Development
-
-### Prerequisites
-*   Python 3.10+
-*   Google Earth Engine Access
-
-### Setup
-1. Clone the repository:
-   \\\ash
-   git clone https://github.com/kingdidntcry-bit/TerraScan.git
-   cd TerraScan
-   \\\
-2. Install dependencies:
-   \\\ash
-   pip install -r requirements.txt
-   \\\
-3. Authenticate Earth Engine:
-   \\\ash
-   earthengine authenticate
-   \\\
-4. Run the app:
-   \\\ash
-   streamlit run app.py
-   \\\
+## ?? Repository Organization
+*   pp.py: Main application entry point.
+*   equirements.txt: Python dependencies.
+*   data/: Pre-cached metadata (UNESCO Site Catalog).
+*   index.html: Landing page for GitHub Pages.
+*   start_terrascan.bat: Local one-click launcher.
 
 ---
-
-## ?? Project Structure
-\\\	ext
-TerraScan/
-+-- app.py                # Main Application Logic
-+-- requirements.txt      # Python Dependencies
-+-- data/
-¦   +-- heritage_sites.json # UNESCO Site Cache
-+-- terrascan/            # Project Assets & Utilities
-+-- .gitignore            # Git exclusion rules
-\\\
-
----
-
-## ?? License
-This project is developed for the **NGGSIC 2026** competition. All rights reserved.
-
----
-*Developed with ?? for Geospatial Innovation.*
+*Developed for **NGGSIC 2026**. Transforming satellite data into actionable heritage intelligence.*
