@@ -754,7 +754,7 @@ elif catalog_mode == "Timelapse Viewer":
                         title="Landsat Timelapse",
                         add_text=False,  # Bypassing ffmpeg requirement natively!
                         progress_bar_color="blue",
-                        mp4=True
+                        mp4=False
                     )
                 except Exception as e:
                     st.error(f"Timelapse Generation Failed: {e}")
@@ -851,35 +851,18 @@ elif catalog_mode == "Timelapse Viewer":
                     }});
                 </script>
                 """
-                # --- Export Buttons (Above Scrubber) ---
-                st.markdown("### 📥 Download Timelapse Archive")
-                dl_col1, dl_col2 = st.columns(2)
-                
-                with dl_col1:
-                    gif_path = "scratch_timelapse.gif"
-                    if os.path.exists(gif_path):
-                        with open(gif_path, "rb") as f:
-                            st.download_button(
-                                label="🖼️ Download as GIF",
-                                data=f,
-                                file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.gif",
-                                mime="image/gif",
-                                use_container_width=True
-                            )
-                
-                with dl_col2:
-                    mp4_path = "scratch_timelapse.mp4"
-                    if os.path.exists(mp4_path):
-                        with open(mp4_path, "rb") as f:
-                            st.download_button(
-                                label="🎬 Download as MP4",
-                                data=f,
-                                file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.mp4",
-                                mime="video/mp4",
-                                use_container_width=True
-                            )
-                    else:
-                        st.info("MP4 format not available (ffmpeg missing). Use GIF instead.")
+                # --- Export Button (Above Scrubber) ---
+                st.markdown("### 📥 Download Timelapse (GIF)")
+                gif_path = "scratch_timelapse.gif"
+                if os.path.exists(gif_path):
+                    with open(gif_path, "rb") as f:
+                        st.download_button(
+                            label="🖼️ Download as GIF Archive",
+                            data=f,
+                            file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.gif",
+                            mime="image/gif",
+                            use_container_width=True
+                        )
 
                 st.components.v1.html(html_code, height=700)
             except Exception as e:
