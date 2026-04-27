@@ -168,30 +168,40 @@ catalog_mode = st.sidebar.radio("Processing Modules", ["Indices Analysis", "Time
 st.sidebar.markdown("---")
 run_ml = False
 
-with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
+try:
+    # 1. Try Service Account from Secrets (Streamlit Cloud best practice)
+    if "EARTHENGINE_SERVICE_ACCOUNT" in st.secrets:
+        sa_info = st.secrets["EARTHENGINE_SERVICE_ACCOUNT"]
+        if isinstance(sa_info, str):
+            import json
+            sa_info = json.loads(sa_info)
+        
+        from google.oauth2 import service_account
+        credentials = service_account.Credentials.from_service_account_info(sa_info)
+        ee.Initialize(credentials=credentials, project=EE_PROJECT)
+    else:
+        # 2. Fallback to local user auth
+        ee.Initialize(project=EE_PROJECT)
+except Exception as e:
     try:
-        # 1. Try Service Account from Secrets (Streamlit Cloud best practice)
-        if "EARTHENGINE_SERVICE_ACCOUNT" in st.secrets:
-            sa_info = st.secrets["EARTHENGINE_SERVICE_ACCOUNT"]
-            if isinstance(sa_info, str):
-                import json
-                sa_info = json.loads(sa_info)
-            
-            from google.oauth2 import service_account
-            credentials = service_account.Credentials.from_service_account_info(sa_info)
-            ee.Initialize(credentials=credentials, project=EE_PROJECT)
-        else:
-            # 2. Fallback to local user auth
-            ee.Initialize(project=EE_PROJECT)
-    except Exception as e:
-        try:
-            # 3. Interactive fallback (Local only)
-            ee.Authenticate()
-            ee.Initialize(project=EE_PROJECT)
-        except Exception:
-            st.error(f"Failed to authenticate with project '{EE_PROJECT}'. Error: {e}")
-            st.info("Deployment Tip: For Streamlit Cloud, add your GCP Service Account JSON to Streamlit Secrets as EARTHENGINE_SERVICE_ACCOUNT.")
-            st.stop()
+        # 3. Interactive fallback (Local only)
+        ee.Authenticate()
+        ee.Initialize(project=EE_PROJECT)
+    except Exception:
+        st.error(f"### ⚠️ Earth Engine Authentication Failed")
+        st.info(f"**Error Details:** {e}")
+        st.markdown("""
+        To run this app on the web, you need to provide a Google Cloud Service Account key in the Streamlit Secrets.
+        
+        1. Create a Service Account in GCP with Earth Engine access.
+        2. Copy the JSON key content.
+        3. Paste it into **Streamlit Cloud -> Settings -> Secrets** as `EARTHENGINE_SERVICE_ACCOUNT`.
+        
+        Refer to the [README](https://github.com/kingdidntcry-bit/TerraScan#2-earth-engine-authentication-service-account) for details.
+        """)
+        st.stop()
+
+with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
             
     current_y = datetime.date.today().year
 
