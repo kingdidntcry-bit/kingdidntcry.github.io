@@ -754,7 +754,7 @@ elif catalog_mode == "Timelapse Viewer":
                         title="Landsat Timelapse",
                         add_text=False,  # Bypassing ffmpeg requirement natively!
                         progress_bar_color="blue",
-                        mp4=False
+                        mp4=True
                     )
                 except Exception as e:
                     st.error(f"Timelapse Generation Failed: {e}")
@@ -852,5 +852,17 @@ elif catalog_mode == "Timelapse Viewer":
                 </script>
                 """
                 st.components.v1.html(html_code, height=700)
+                
+                # --- MP4 Download ---
+                mp4_path = "scratch_timelapse.mp4"
+                if os.path.exists(mp4_path):
+                    with open(mp4_path, "rb") as f:
+                        st.download_button(
+                            label="📥 Download Timelapse as MP4",
+                            data=f,
+                            file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.mp4",
+                            mime="video/mp4",
+                            use_container_width=True
+                        )
             except Exception as e:
                 st.error(f"Error parsing GIF frames: {e}")
