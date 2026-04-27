@@ -730,7 +730,7 @@ elif catalog_mode == "Timelapse Viewer":
     if not click_pt:
         st.info("Please switch to **Indices Analysis** to select a UNESCO site or coordinate first, then return here.")
     else:
-        st.success(f"Locked on coordinates: {round(click_pt['lat'],4)}, {round(click_pt['lng'],4)}. Generating a 5km ROI timelapse.")
+        st.success(f"Locked on coordinates: {round(click_pt['lat'],4)}, {round(click_pt['lng'],4)}. Generating a {roi_radius} ROI timelapse.")
         
         band_map = {
             "True Color (Red, Green, Blue)": ["Red", "Green", "Blue"],
