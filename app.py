@@ -48,9 +48,19 @@ if st.session_state.page == "landing":
         .main .block-container {
             max-width: 100%;
             height: 100vh;
-            padding-top: 0.6rem;
-            padding-bottom: 0.6rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
             overflow: hidden;
+        }
+        [data-testid="stVerticalBlock"] {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
         }
         [data-testid="stSidebar"] {display: none;}
         [data-testid="collapsedControl"] {display: none;}
@@ -91,14 +101,22 @@ if st.session_state.page == "landing":
         }
 
         
+        div.stButton {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 1rem;
+        }
         div.stButton > button:first-child {
             background-color: #111827 !important;
             color: white !important;
             border-radius: 8px !important;
-            padding: 0.5rem 1rem !important;
+            padding: 0.7rem 2rem !important;
+            font-size: 1.1rem !important;
             font-weight: 600 !important;
             border: none !important;
-            width: 100%;
+            width: auto !important;
+            min-width: 220px;
         }
         div.stButton > button:hover {
             background-color: #374151 !important;
@@ -108,14 +126,14 @@ if st.session_state.page == "landing":
     
     st.markdown("""
         <div style='position: fixed; top: 12px; left: 24px; display: flex; align-items: center; gap: 16px; z-index: 999999;'>
-            <div style='font-size: 1.6rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px;'>
+            <div style='font-size: 1.8rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px;'>
                 ☁ TerraScan
             </div>
-            <div style='height: 28px; width: 2px; background-color: #D1D5DB;'></div>
-            <img src='https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png' style='height: 34px; object-fit: contain;'>
+            <div style='height: 38px; width: 2px; background-color: #D1D5DB;'></div>
+            <img src='https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png' style='height: 48px; object-fit: contain;'>
         </div>
     """, unsafe_allow_html=True)
-    st.markdown("<div class='banner' style='margin-top: 60px;'>TerraScan integration is live →</div>", unsafe_allow_html=True)
+    st.markdown("<div class='banner'>TerraScan integration is live →</div>", unsafe_allow_html=True)
     
     st.markdown("""
         <div class='hero-title'>
@@ -127,11 +145,9 @@ if st.session_state.page == "landing":
         </div>
     """, unsafe_allow_html=True)
     
-    _, _, col3, _, _ = st.columns([2, 1, 1, 1, 2])
-    with col3:
-        if st.button("Browse Catalog"):
-            st.session_state.page = "dashboard"
-            st.rerun()
+    if st.button("Browse Catalog"):
+        st.session_state.page = "dashboard"
+        st.rerun()
             
     st.stop()
 
