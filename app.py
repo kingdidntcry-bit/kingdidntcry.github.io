@@ -52,7 +52,7 @@ if st.session_state.page == "landing":
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 0;
+            padding-top: 12vh;
             overflow: hidden;
         }
         [data-testid="stVerticalBlock"] {
