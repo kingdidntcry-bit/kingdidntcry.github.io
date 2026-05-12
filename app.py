@@ -30,7 +30,6 @@ import ee
 import datetime
 import folium.plugins
 import leafmap.foliumap as foliumap
-import requests
 import json
 from concurrent.futures import ThreadPoolExecutor
 

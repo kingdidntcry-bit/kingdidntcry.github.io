@@ -4,9 +4,6 @@ leafmap
 geemap
 folium
 streamlit-folium
-plotly
-pandas
-tifffile
 numpy
 Pillow
 requests
