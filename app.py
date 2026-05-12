@@ -159,13 +159,33 @@ st.markdown("""
         overflow: hidden;
     }
     [data-testid="stHeader"] {
-        background: transparent;
+        background: transparent !important;
+        z-index: 999990 !important;
     }
     [data-testid="stToolbar"] {
-        display: none;
+        display: none !important;
     }
     [data-testid="collapsedControl"] {
-        display: block !important;
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        margin-top: 10px !important;
+        margin-left: 10px !important;
+        padding: 0.2rem !important;
+        color: #111827 !important;
+    }
+    [data-testid="collapsedControl"]:hover {
+        background-color: #f3f4f6 !important;
+    }
+    /* Target the SVG icon inside */
+    [data-testid="collapsedControl"] svg {
+        fill: #111827 !important;
+        stroke: #111827 !important;
     }
     .main .block-container {
         max-width: 100%;
