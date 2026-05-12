@@ -89,12 +89,7 @@ if st.session_state.page == "landing":
             text-align: center;
             font-size: 0.9rem;
         }
-        .logo-bar {
-            padding: 1rem 2rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #111827;
-        }
+
         
         div.stButton > button:first-child {
             background-color: #111827 !important;
@@ -111,8 +106,16 @@ if st.session_state.page == "landing":
         </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("<div class='logo-bar'>☁ TerraScan</div>", unsafe_allow_html=True)
-    st.markdown("<div class='banner'>TerraScan integration is live →</div>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style='position: fixed; top: 12px; left: 24px; display: flex; align-items: center; gap: 16px; z-index: 999999;'>
+            <div style='font-size: 1.6rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px;'>
+                ☁ TerraScan
+            </div>
+            <div style='height: 28px; width: 2px; background-color: #D1D5DB;'></div>
+            <img src='https://upload.wikimedia.org/wikipedia/en/thumb/f/f0/UiTM_logo.svg/1200px-UiTM_logo.svg.png' style='height: 34px; object-fit: contain;'>
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("<div class='banner' style='margin-top: 60px;'>TerraScan integration is live →</div>", unsafe_allow_html=True)
     
     st.markdown("""
         <div class='hero-title'>
