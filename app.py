@@ -817,7 +817,6 @@ elif catalog_mode == "Timelapse Viewer":
                         end_date="12-31",
                         bands=bands,
                         frames_per_second=tl_fps,
-                        title="Landsat Timelapse",
                         add_text=False,  # Bypassing ffmpeg requirement natively!
                         progress_bar_color="blue",
                         mp4=False
