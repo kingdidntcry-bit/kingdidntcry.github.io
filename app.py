@@ -62,8 +62,8 @@ if st.session_state.page == "landing":
             align-items: center;
             width: 100%;
         }
-        [data-testid="stSidebar"] {display: none;}
-        [data-testid="collapsedControl"] {display: none;}
+        [data-testid="stSidebar"] {display: none !important;}
+        [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {display: none !important;}
         
         .hero-title {
             text-align: center;
@@ -160,32 +160,29 @@ st.markdown("""
     }
     [data-testid="stHeader"] {
         background: transparent !important;
-        z-index: 999990 !important;
+        pointer-events: none; /* Let clicks pass through to the map if not clicking a button */
     }
     [data-testid="stToolbar"] {
-        display: none !important;
+        display: flex !important;
+        pointer-events: auto;
     }
+    [data-testid="stSidebarCollapsedControl"],
     [data-testid="collapsedControl"] {
-        display: inline-flex !important;
+        display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
         z-index: 999999 !important;
-        background-color: #ffffff !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        margin-top: 10px !important;
-        margin-left: 10px !important;
-        padding: 0.2rem !important;
-        color: #111827 !important;
+        background-color: white !important;
+        border-radius: 6px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+        padding: 4px !important;
+        color: black !important;
+        pointer-events: auto !important;
     }
-    [data-testid="collapsedControl"]:hover {
-        background-color: #f3f4f6 !important;
-    }
-    /* Target the SVG icon inside */
+    [data-testid="stSidebarCollapsedControl"] svg,
     [data-testid="collapsedControl"] svg {
-        fill: #111827 !important;
-        stroke: #111827 !important;
+        fill: black !important;
+        color: black !important;
     }
     .main .block-container {
         max-width: 100%;
