@@ -880,6 +880,11 @@ elif catalog_mode == "Timelapse Viewer":
                     draw.text((x_pos+2, y_pos+2), loc_text, font=font_loc, fill="black")
                     draw.text((x_pos, y_pos), loc_text, font=font_loc, fill="white")
                     
+                    # --- Bottom Left Title Overlay ---
+                    title_text = "Landsat Timelapse"
+                    draw.text((20+2, y_pos+2), title_text, font=font_loc, fill="black")
+                    draw.text((20, y_pos), title_text, font=font_loc, fill="white")
+                    
                     # Keep for scrubber
                     frame.save(buf, format="JPEG")
                     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
