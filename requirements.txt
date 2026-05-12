@@ -11,3 +11,4 @@ numpy
 Pillow
 requests
 google-auth
+imageio-ffmpeg

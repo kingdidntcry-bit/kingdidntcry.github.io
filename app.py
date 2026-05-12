@@ -1,4 +1,26 @@
 import streamlit as st
+
+import requests
+
+@st.cache_data(show_spinner=False)
+def get_location_name(lat, lon):
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10&addressdetails=1"
+        headers = {'User-Agent': 'TerraScan-App/1.0'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'address' in data:
+                addr = data['address']
+                city = addr.get('city', addr.get('town', addr.get('village', addr.get('county', 'Unknown Place'))))
+                country = addr.get('country', 'Unknown Country')
+                if city == 'Unknown Place' and 'state' in addr:
+                    city = addr['state']
+                return f"{city}, {country}"
+    except: pass
+    return f"Lat: {round(lat, 2)}, Lon: {round(lon, 2)}"
+
+
 import base64
 from PIL import Image, ImageSequence, ImageDraw, ImageFont
 import os
@@ -778,6 +800,8 @@ elif catalog_mode == "Timelapse Viewer":
         gif_path = "scratch_timelapse.gif"
         
         if run_tl:
+            location_name = get_location_name(click_pt['lat'], click_pt['lng'])
+            mp4_path = "scratch_timelapse.mp4"
             radius_m = 5000 if roi_radius == "5 km" else 10000
             roi = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]]).buffer(radius_m).bounds()
             with st.spinner("Compiling Earth Engine Timelapse Archive... This may take a minute."):
@@ -833,6 +857,29 @@ elif catalog_mode == "Timelapse Viewer":
                     draw.text((22, 22), year_text, font=font, fill="black")
                     draw.text((20, 20), year_text, font=font, fill="white")
                     
+                    # --- Bottom Right Location Overlay ---
+                    loc_text = location_name
+                    try:
+                        font_loc = ImageFont.truetype("arial.ttf", 20)
+                    except:
+                        font_loc = ImageFont.load_default()
+                    
+                    w, h = frame.size
+                    try:
+                        bbox = draw.textbbox((0,0), loc_text, font=font_loc)
+                        tw = bbox[2] - bbox[0]
+                        th = bbox[3] - bbox[1]
+                    except:
+                        try:
+                            tw, th = draw.textsize(loc_text, font=font_loc)
+                        except:
+                            tw, th = (len(loc_text)*10, 20)
+                            
+                    x_pos = w - tw - 20
+                    y_pos = h - th - 20
+                    draw.text((x_pos+2, y_pos+2), loc_text, font=font_loc, fill="black")
+                    draw.text((x_pos, y_pos), loc_text, font=font_loc, fill="white")
+                    
                     # Keep for scrubber
                     frame.save(buf, format="JPEG")
                     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -841,15 +888,15 @@ elif catalog_mode == "Timelapse Viewer":
                     # Keep for final GIF download
                     processed_frames.append(frame)
                 
-                # Save the "Burned" GIF for download
+                # Save the "Burned" frames to MP4 for download
                 if processed_frames:
-                    processed_frames[0].save(
-                        gif_path, 
-                        save_all=True, 
-                        append_images=processed_frames[1:], 
-                        duration=int(1000/tl_fps), 
-                        loop=0
-                    )
+                    try:
+                        import imageio
+                        import numpy as np
+                        images_array = [np.array(img) for img in processed_frames]
+                        imageio.mimsave(mp4_path, images_array, fps=tl_fps, format='FFMPEG', macro_block_size=None)
+                    except Exception as e:
+                        st.error(f"Failed to save MP4: {e}")
                 
                 import json
                 frames_json = json.dumps(b64_frames)
@@ -909,15 +956,15 @@ elif catalog_mode == "Timelapse Viewer":
                 </script>
                 """
                 # --- Export Button (Above Scrubber) ---
-                st.markdown("### 📥 Download Timelapse (GIF)")
-                gif_path = "scratch_timelapse.gif"
-                if os.path.exists(gif_path):
-                    with open(gif_path, "rb") as f:
+                st.markdown("### 📥 Download Timelapse (MP4)")
+                mp4_path = "scratch_timelapse.mp4"
+                if os.path.exists(mp4_path):
+                    with open(mp4_path, "rb") as f:
                         st.download_button(
-                            label="🖼️ Download as GIF Archive",
+                            label="🎬 Download as MP4 Video",
                             data=f,
-                            file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.gif",
-                            mime="image/gif",
+                            file_name=f"terrascan_timelapse_{tl_start_year}_{tl_end_year}.mp4",
+                            mime="video/mp4",
                             use_container_width=True
                         )
 
