@@ -112,7 +112,7 @@ if st.session_state.page == "landing":
                 ☁ TerraScan
             </div>
             <div style='height: 28px; width: 2px; background-color: #D1D5DB;'></div>
-            <img src='https://upload.wikimedia.org/wikipedia/en/thumb/f/f0/UiTM_logo.svg/1200px-UiTM_logo.svg.png' style='height: 34px; object-fit: contain;'>
+            <img src='https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png' style='height: 34px; object-fit: contain;'>
         </div>
     """, unsafe_allow_html=True)
     st.markdown("<div class='banner' style='margin-top: 60px;'>TerraScan integration is live →</div>", unsafe_allow_html=True)
