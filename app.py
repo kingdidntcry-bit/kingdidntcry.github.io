@@ -798,10 +798,10 @@ elif catalog_mode == "Timelapse Viewer":
         bands = band_map[tl_bands]
         
         gif_path = "scratch_timelapse.gif"
+        mp4_path = "scratch_timelapse.mp4"
+        location_name = get_location_name(click_pt['lat'], click_pt['lng'])
         
         if run_tl:
-            location_name = get_location_name(click_pt['lat'], click_pt['lng'])
-            mp4_path = "scratch_timelapse.mp4"
             radius_m = 5000 if roi_radius == "5 km" else 10000
             roi = ee.Geometry.Point([click_pt["lng"], click_pt["lat"]]).buffer(radius_m).bounds()
             with st.spinner("Compiling Earth Engine Timelapse Archive... This may take a minute."):
