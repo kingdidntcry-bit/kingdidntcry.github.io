@@ -783,13 +783,16 @@ if catalog_mode == "Indices Analysis":
         if not st.session_state.get("map_locked", False):
             st.markdown("Select a UNESCO place above, or click the map to evaluate a 5km UNESCO Heritage region.")
         else:
-            st.markdown("Observation Mode: The map is locked for stable UI interaction.")
-            if st.button("Unlock & Select New Region", use_container_width=True):
-                st.session_state["map_locked"] = False
-                st.session_state["persistent_click"] = None
-                st.session_state["selected_unesco_site_id"] = None
-                st.session_state["unesco_reset_pending"] = True
-                st.rerun()
+            ui_c1, ui_c2 = st.columns(2)
+            with ui_c1:
+                if st.button("Unlock & Select New Region", use_container_width=True):
+                    st.session_state["map_locked"] = False
+                    st.session_state["persistent_click"] = None
+                    st.session_state["selected_unesco_site_id"] = None
+                    st.session_state["unesco_reset_pending"] = True
+                    st.rerun()
+            with ui_c2:
+                st.session_state["inspector_active"] = st.toggle("🔍 Enable Click-to-Inspect", value=st.session_state.get("inspector_active", False))
                 
         click_pt = st.session_state["persistent_click"]
         
@@ -852,47 +855,53 @@ if catalog_mode == "Indices Analysis":
         except Exception as e:
             st.error(f"Error drawing map: {e}")
     
-        # Render st_folium permanently to track both region lock and inspector clicks
-        map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
-        
-        if map_data and map_data.get("last_clicked"):
-            clicked_pt = map_data["last_clicked"]
-            
-            if not st.session_state.get("map_locked", False):
+        if not st.session_state.get("map_locked", False):
+            # Unlocked map - listening for clicks to set ROI
+            map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
+            if map_data and map_data.get("last_clicked"):
+                clicked_pt = map_data["last_clicked"]
                 if st.session_state["persistent_click"] != clicked_pt:
                     st.session_state["persistent_click"] = clicked_pt
                     st.session_state["persistent_center"] = [clicked_pt["lat"], clicked_pt["lng"]]
                     st.session_state["map_locked"] = True
                     st.rerun()
+        else:
+            if st.session_state.get("inspector_active", False):
+                # Locked map with Inspector Active - listening for clicks to probe pixels
+                map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="inspector_map")
+                if map_data and map_data.get("last_clicked"):
+                    clicked_pt = map_data["last_clicked"]
+                    if st.session_state.get("inspector_click") != clicked_pt:
+                        st.session_state["inspector_click"] = clicked_pt
+                        try:
+                            insp_pt = ee.Geometry.Point([clicked_pt["lng"], clicked_pt["lat"]])
+                            if layer_selection != "True Color":
+                                # Crucial Fix: Select the exact band by name instead of select(0) which returned raw B1/B2
+                                val_base = baseline_img.select(layer_selection).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                                val_comp = comp_img.select(layer_selection).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                                
+                                b_val = list(val_base.values())[0] if val_base and val_base.values() else None
+                                c_val = list(val_comp.values())[0] if val_comp and val_comp.values() else None
+                                
+                                st.session_state["inspector_data"] = {
+                                    "lat": clicked_pt["lat"],
+                                    "lng": clicked_pt["lng"],
+                                    "baseline": b_val,
+                                    "comparison": c_val
+                                }
+                            else:
+                                st.session_state["inspector_data"] = {
+                                    "lat": clicked_pt["lat"],
+                                    "lng": clicked_pt["lng"],
+                                    "baseline": "RGB",
+                                    "comparison": "RGB"
+                                }
+                            st.rerun()
+                        except Exception as e:
+                            st.warning(f"Inspector failed: {e}")
             else:
-                # Inspector Mode: Read exact pixel value
-                if st.session_state.get("inspector_click") != clicked_pt:
-                    st.session_state["inspector_click"] = clicked_pt
-                    try:
-                        insp_pt = ee.Geometry.Point([clicked_pt["lng"], clicked_pt["lat"]])
-                        if layer_selection != "True Color":
-                            val_base = baseline_img.select(0).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
-                            val_comp = comp_img.select(0).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
-                            
-                            b_val = list(val_base.values())[0] if val_base and val_base.values() else None
-                            c_val = list(val_comp.values())[0] if val_comp and val_comp.values() else None
-                            
-                            st.session_state["inspector_data"] = {
-                                "lat": clicked_pt["lat"],
-                                "lng": clicked_pt["lng"],
-                                "baseline": b_val,
-                                "comparison": c_val
-                            }
-                        else:
-                            st.session_state["inspector_data"] = {
-                                "lat": clicked_pt["lat"],
-                                "lng": clicked_pt["lng"],
-                                "baseline": "RGB",
-                                "comparison": "RGB"
-                            }
-                        st.rerun()
-                    except Exception as e:
-                        st.warning(f"Inspector failed: {e}")
+                # Butter smooth static map! No lag on pan/zoom, no accidental clicks!
+                m.to_streamlit(height=MAP_HEIGHT)
         
         # Safe call for export buttons
         try:
@@ -934,21 +943,18 @@ if catalog_mode == "Indices Analysis":
                 val = insp["comparison"]
                 clamped_val = max(c_min, min(c_max, val))
                 pct = ((clamped_val - c_min) / (c_max - c_min)) * 100
-                marker_html = f"""
-                <div style="position: absolute; left: -18px; bottom: {pct}%; transform: translateY(50%); font-size: 1rem; color: #111827; z-index: 10;">
-                    ▶
-                </div>
-                """
+                # CRITICAL FIX: No leading spaces to prevent Markdown from wrapping it in <code> blocks
+                marker_html = f"<div style='position: absolute; left: -18px; bottom: {pct}%; transform: translateY(50%); font-size: 1rem; color: #111827; z-index: 10;'>▶</div>"
                 
-            st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0; position: relative;">
-                <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
-                <div style="position: relative; width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
-                    {marker_html}
-                </div>
-                <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            # CRITICAL FIX: Ensure entire string has zero leading indentation at the HTML level
+            st.markdown(
+f"""<div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0; position: relative;">
+<div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
+<div style="position: relative; width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
+{marker_html}
+</div>
+<div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
+</div>""", unsafe_allow_html=True)
             
             if insp:
                 b_text = f"{insp['baseline']:.3f}" if isinstance(insp.get("baseline"), (int, float)) else "No Data"
