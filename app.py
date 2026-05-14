@@ -558,6 +558,16 @@ def get_sentinel_collection(start_date, end_date):
     return ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterDate(start_date, end_date).map(prep_sentinel)
 
 
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_map_url(lat, lng, radius_m, year, source, layer, _vis_params):
+    pt = ee.Geometry.Point([lng, lat])
+    roi = pt.buffer(radius_m).bounds()
+    img = get_annual_median(year, source).clip(roi)
+    if layer == "LST" and source == "Landsat (30m)":
+        img = calculate_manual_lst(img)
+    return img.getMapId(_vis_params)['tile_fetcher'].url_format
+
 def get_image_download_url(image, filename, source):
     """Generates a GEE download URL for a TIFF image."""
     scale = 30 if "Landsat" in source else 10
@@ -833,8 +843,8 @@ if catalog_mode == "Indices Analysis":
                         return img.getMapId(vis_params)['tile_fetcher'].url_format
     
                 with ThreadPoolExecutor(max_workers=2) as executor:
-                    f_base = executor.submit(fetch_url, baseline_img)
-                    f_comp = executor.submit(fetch_url, comp_img)
+                    f_base = executor.submit(get_map_url, click_pt["lat"], click_pt["lng"], radius_m, baseline_year, data_source, layer_selection, vis_params)
+                    f_comp = executor.submit(get_map_url, click_pt["lat"], click_pt["lng"], radius_m, comparison_year, data_source, layer_selection, vis_params)
                     left_url = f_base.result()
                     right_url = f_comp.result()
     
@@ -842,19 +852,47 @@ if catalog_mode == "Indices Analysis":
         except Exception as e:
             st.error(f"Error drawing map: {e}")
     
-        # Render st_folium locally for tracking OR static DOM natively for security structurally scaling 
-        if not st.session_state.get("map_locked", False):
-            map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
+        # Render st_folium permanently to track both region lock and inspector clicks
+        map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="main_map")
+        
+        if map_data and map_data.get("last_clicked"):
+            clicked_pt = map_data["last_clicked"]
             
-            if map_data and map_data.get("last_clicked"):
-                if st.session_state["persistent_click"] != map_data["last_clicked"]:
-                    st.session_state["persistent_click"] = map_data["last_clicked"]
-                    new_c = map_data["last_clicked"]
-                    st.session_state["persistent_center"] = [new_c["lat"], new_c["lng"]]
+            if not st.session_state.get("map_locked", False):
+                if st.session_state["persistent_click"] != clicked_pt:
+                    st.session_state["persistent_click"] = clicked_pt
+                    st.session_state["persistent_center"] = [clicked_pt["lat"], clicked_pt["lng"]]
                     st.session_state["map_locked"] = True
                     st.rerun()
-        else:
-            m.to_streamlit(height=MAP_HEIGHT)
+            else:
+                # Inspector Mode: Read exact pixel value
+                if st.session_state.get("inspector_click") != clicked_pt:
+                    st.session_state["inspector_click"] = clicked_pt
+                    try:
+                        insp_pt = ee.Geometry.Point([clicked_pt["lng"], clicked_pt["lat"]])
+                        if layer_selection != "True Color":
+                            val_base = baseline_img.select(0).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                            val_comp = comp_img.select(0).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                            
+                            b_val = list(val_base.values())[0] if val_base and val_base.values() else None
+                            c_val = list(val_comp.values())[0] if val_comp and val_comp.values() else None
+                            
+                            st.session_state["inspector_data"] = {
+                                "lat": clicked_pt["lat"],
+                                "lng": clicked_pt["lng"],
+                                "baseline": b_val,
+                                "comparison": c_val
+                            }
+                        else:
+                            st.session_state["inspector_data"] = {
+                                "lat": clicked_pt["lat"],
+                                "lng": clicked_pt["lng"],
+                                "baseline": "RGB",
+                                "comparison": "RGB"
+                            }
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"Inspector failed: {e}")
         
         # Safe call for export buttons
         try:
@@ -890,13 +928,39 @@ if catalog_mode == "Indices Analysis":
             else:
                 c_min, c_max, c_pal = -1.0, 1.0, "black, white"
     
+            insp = st.session_state.get("inspector_data")
+            marker_html = ""
+            if insp and insp.get("comparison") is not None and isinstance(insp.get("comparison"), (int, float)):
+                val = insp["comparison"]
+                clamped_val = max(c_min, min(c_max, val))
+                pct = ((clamped_val - c_min) / (c_max - c_min)) * 100
+                marker_html = f"""
+                <div style="position: absolute; left: -18px; bottom: {pct}%; transform: translateY(50%); font-size: 1rem; color: #111827; z-index: 10;">
+                    ▶
+                </div>
+                """
+                
             st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0; position: relative;">
                 <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
-                <div style="width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);"></div>
+                <div style="position: relative; width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
+                    {marker_html}
+                </div>
                 <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
             </div>
             """, unsafe_allow_html=True)
+            
+            if insp:
+                b_text = f"{insp['baseline']:.3f}" if isinstance(insp.get("baseline"), (int, float)) else "No Data"
+                c_text = f"{insp['comparison']:.3f}" if isinstance(insp.get("comparison"), (int, float)) else "No Data"
+                st.markdown(f"""
+                <div style='background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #3B82F6;'>
+                    <h5 style='margin: 0 0 0.5rem 0;'>📍 Inspector Reading</h5>
+                    <p style='margin: 0; font-size: 0.8rem; color: #4B5563;'>Lat: {insp['lat']:.4f}, Lng: {insp['lng']:.4f}</p>
+                    <p style='margin: 0.5rem 0 0 0; font-weight: 600;'>Left Map: <span style='color: #4B5563;'>{b_text}</span></p>
+                    <p style='margin: 0; font-weight: 600; color: #1e40af;'>Right Map: {c_text}</p>
+                </div>
+                """, unsafe_allow_html=True)
     
     # --- Full Width Footer (Documentation) ---
     st.markdown("---")
