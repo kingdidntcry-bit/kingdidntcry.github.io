@@ -622,13 +622,13 @@ def calculate_manual_lst(img):
     # 1. BT (Brightness Temperature Proxy from Level 2 ST_B10)
     btk = img.select('ST_B10').multiply(0.00341802).add(149.0)
     
-    # 2. NDVI
-    ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
+    # 2. NDVI (Use pre-computed robust NDVI to avoid divide-by-zero masking on scaled bands)
+    ndvi = img.select('NDVI')
     
     # 3. Proportion of Vegetation Pv
     pv = ndvi.subtract(0.2).divide(0.3).clamp(0, 1).pow(2).rename('Pv')
     
-    # 4. Emissivity \u03b5 (Mono-Window Thresholds)
+    # 4. Emissivity ε (Mono-Window Thresholds)
     epsMixed = pv.multiply(0.004).add(0.986)
     eps = ee.Image(0.99) \
             .where(ndvi.gt(0.5), 0.990) \
@@ -636,14 +636,14 @@ def calculate_manual_lst(img):
             .rename('EMIS')
     
     # 5. Mono-Window LST Evaluation
-    # lst_k = btk / (1 + (btk * 0.00115 / 1.438) * ln(eps))
     lst_k = img.expression(
         'BTK / (1 + (BTK * 0.00115 / 1.438) * log(EPS))', {
             'BTK': btk, 
             'EPS': eps
         }
     )
-    return lst_k.subtract(273.15).rename('LST')
+    lst_band = lst_k.subtract(273.15).rename('LST')
+    return img.addBands(lst_band, overwrite=True)
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_unesco_sites():
