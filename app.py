@@ -70,7 +70,7 @@ st.markdown("""
             pointer-events: auto;
         }
     </style>
-    <div style='position: fixed; top: 0; left: 0; width: 100%; height: 60px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; align-items: center; padding-left: 24px; gap: 16px; z-index: 999980; pointer-events: none;'>
+    <div style='position: fixed; top: 0; left: 0; width: 100%; height: 60px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; align-items: center; padding-left: 75px; gap: 16px; z-index: 999980; pointer-events: none;'>
         <div style='font-size: 1.4rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; pointer-events: auto;'>
             ☁ TerraScan
         </div>
@@ -322,7 +322,6 @@ st.markdown("""
     }
     [data-testid="stSidebarCollapsedControl"],
     [data-testid="collapsedControl"] {
-        position: fixed !important;
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -333,8 +332,6 @@ st.markdown("""
         padding: 4px !important;
         color: black !important;
         pointer-events: auto !important;
-        top: 75px !important;
-        left: 1rem !important;
     }
     
     [data-testid="stSidebar"] {
