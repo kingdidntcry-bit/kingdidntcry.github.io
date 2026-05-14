@@ -938,22 +938,40 @@ if catalog_mode == "Indices Analysis":
                 c_min, c_max, c_pal = -1.0, 1.0, "black, white"
     
             insp = st.session_state.get("inspector_data")
-            marker_html = ""
-            if insp and insp.get("comparison") is not None and isinstance(insp.get("comparison"), (int, float)):
-                val = insp["comparison"]
-                clamped_val = max(c_min, min(c_max, val))
-                pct = ((clamped_val - c_min) / (c_max - c_min)) * 100
-                # CRITICAL FIX: No leading spaces to prevent Markdown from wrapping it in <code> blocks
-                marker_html = f"<div style='position: absolute; left: -18px; bottom: {pct}%; transform: translateY(50%); font-size: 1rem; color: #111827; z-index: 10;'>▶</div>"
+            marker_html_left = ""
+            marker_html_right = ""
+            
+            if insp:
+                val_base = insp.get("baseline")
+                if val_base is not None and isinstance(val_base, (int, float)):
+                    pct_b = ((max(c_min, min(c_max, val_base)) - c_min) / (c_max - c_min)) * 100
+                    marker_html_left = f"<div style='position: absolute; right: -18px; bottom: {pct_b}%; transform: translateY(50%); font-size: 1rem; color: #4B5563; z-index: 10;'>◀</div>"
                 
-            # CRITICAL FIX: Ensure entire string has zero leading indentation at the HTML level
+                val_comp = insp.get("comparison")
+                if val_comp is not None and isinstance(val_comp, (int, float)):
+                    pct_c = ((max(c_min, min(c_max, val_comp)) - c_min) / (c_max - c_min)) * 100
+                    marker_html_right = f"<div style='position: absolute; left: -18px; bottom: {pct_c}%; transform: translateY(50%); font-size: 1rem; color: #1e40af; z-index: 10;'>▶</div>"
+
             st.markdown(
-f"""<div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0; position: relative;">
-<div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
-<div style="position: relative; width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
-{marker_html}
-</div>
-<div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
+f"""<div style="display: flex; justify-content: center; gap: 3rem; width: 100%; padding: 1rem 0;">
+    <!-- LEFT MAP LEGEND -->
+    <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="margin-bottom: 8px; font-size: 0.8rem; font-weight: 700; color: #4B5563; text-transform: uppercase;">Left Map</div>
+        <div style="margin-bottom: 5px; font-weight: 600; font-size: 1rem;">{c_max}</div>
+        <div style="position: relative; width: 30px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
+            {marker_html_left}
+        </div>
+        <div style="margin-top: 5px; font-weight: 600; font-size: 1rem;">{c_min}</div>
+    </div>
+    <!-- RIGHT MAP LEGEND -->
+    <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="margin-bottom: 8px; font-size: 0.8rem; font-weight: 700; color: #1e40af; text-transform: uppercase;">Right Map</div>
+        <div style="margin-bottom: 5px; font-weight: 600; font-size: 1rem;">{c_max}</div>
+        <div style="position: relative; width: 30px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);">
+            {marker_html_right}
+        </div>
+        <div style="margin-top: 5px; font-weight: 600; font-size: 1rem;">{c_min}</div>
+    </div>
 </div>""", unsafe_allow_html=True)
             
             if insp:
