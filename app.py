@@ -61,11 +61,11 @@ if "page" not in st.session_state:
 
 # --- Global Header ---
 st.markdown("""
-    <div style='position: fixed; top: 12px; left: 60px; display: flex; align-items: center; gap: 16px; z-index: 999999; pointer-events: none;'>
-        <div style='font-size: 1.4rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px;'>
+    <div style='position: fixed; top: 0; left: 0; width: 100%; height: 60px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; align-items: center; padding-left: 60px; gap: 16px; z-index: 999980; pointer-events: none;'>
+        <div style='font-size: 1.4rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; pointer-events: auto;'>
             ☁ TerraScan
         </div>
-        <div style='height: 32px; width: 2px; background-color: #D1D5DB;'></div>
+        <div style='height: 32px; width: 2px; background-color: #D1D5DB; pointer-events: auto;'></div>
         <img src='https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png' style='height: 40px; object-fit: contain; pointer-events: auto;'>
     </div>
 """, unsafe_allow_html=True)
@@ -79,7 +79,7 @@ if st.session_state.page == "landing":
             overflow-y: auto !important;
         }
         .main .block-container {
-            max-width: 1200px;
+            max-width: 100%;
             margin: 0 auto;
             padding-top: 100px;
             padding-bottom: 50px;
@@ -96,6 +96,7 @@ if st.session_state.page == "landing":
             margin-top: 2rem;
             line-height: 1.1;
             letter-spacing: -0.02em;
+            text-transform: capitalize;
         }
         .hero-human { color: #3B82F6; font-weight: 500; text-decoration: underline; text-decoration-color: #BFDBFE; text-decoration-thickness: 4px; text-underline-offset: 4px;}
         .hero-agent { color: #3B82F6; font-family: 'Courier New', monospace; font-weight: bold; letter-spacing: -2px;}
@@ -190,11 +191,11 @@ if st.session_state.page == "landing":
     
     st.markdown("""
         <div class='hero-title'>
-            Satellite processing systems<br>
-            for <span class='hero-human'>conservation</span> and <span class='hero-agent'>UNESCO heritage</span>
+            Satellite Processing Systems<br>
+            For <span class='hero-human'>Conservation</span> And <span class='hero-agent'>UNESCO Heritage</span>
         </div>
-        <div class='hero-subtitle'>
-            Keep environmental analysts and preservation models aligned with TerraScan's scalable cloud platform.
+        <div class='hero-subtitle' style='text-transform: capitalize;'>
+            Keep Environmental Analysts And Preservation Models Aligned With TerraScan's Scalable Cloud Platform.
         </div>
     """, unsafe_allow_html=True)
     
