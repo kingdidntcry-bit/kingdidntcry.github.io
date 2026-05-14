@@ -100,6 +100,17 @@ if st.session_state.page == "landing":
         [data-testid="stSidebar"] {display: none !important;}
         [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {display: none !important;}
         
+        .banner {
+            display: inline-block;
+            background-color: #3B82F6;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            text-align: center;
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
         .hero-title {
             text-align: center;
             font-size: clamp(2rem, 4.8vw, 4rem);
@@ -203,7 +214,8 @@ if st.session_state.page == "landing":
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style='height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;'>
+        <div style='height: 50vh; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 2rem;'>
+            <div class='banner'>TerraScan Is Live →</div>
             <div class='hero-title'>
                 Satellite Processing Systems<br>
                 For <span class='hero-human'>Conservation</span> And <span class='hero-agent'>UNESCO Heritage</span>
@@ -214,7 +226,15 @@ if st.session_state.page == "landing":
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    # Native Explore button centered via columns
+    btn_col1, btn_col2, btn_col3 = st.columns([1.5, 1, 1.5])
+    with btn_col2:
+        if st.button("Explore your way 🚀", use_container_width=True, key="explore_hero"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+            
+    # Spacer to complete the 100vh split for the navy blue gradient
+    st.markdown("<div style='height: 40vh;'></div>", unsafe_allow_html=True)
     
     # --- Interactive Cards ---
     col1, col2 = st.columns(2, gap="large")
