@@ -867,6 +867,43 @@ if catalog_mode == "Indices Analysis":
                     st.rerun()
         else:
             if st.session_state.get("inspector_active", False):
+                
+                # Auto-initialize inspector if empty, using the center of the ROI
+                if not st.session_state.get("inspector_data") and st.session_state.get("persistent_click"):
+                    st.session_state["inspector_click"] = st.session_state["persistent_click"]
+                    try:
+                        c_lat, c_lng = st.session_state["persistent_click"]["lat"], st.session_state["persistent_click"]["lng"]
+                        insp_pt = ee.Geometry.Point([c_lng, c_lat])
+                        if layer_selection != "True Color":
+                            val_base = baseline_img.select(layer_selection).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                            val_comp = comp_img.select(layer_selection).reduceRegion(ee.Reducer.first(), insp_pt, 30).getInfo()
+                            b_val = list(val_base.values())[0] if val_base and val_base.values() else None
+                            c_val = list(val_comp.values())[0] if val_comp and val_comp.values() else None
+                            st.session_state["inspector_data"] = {
+                                "lat": c_lat,
+                                "lng": c_lng,
+                                "baseline": b_val,
+                                "comparison": c_val
+                            }
+                        else:
+                            st.session_state["inspector_data"] = {
+                                "lat": c_lat,
+                                "lng": c_lng,
+                                "baseline": "RGB",
+                                "comparison": "RGB"
+                            }
+                    except Exception as e:
+                        pass
+                
+                # Draw the Inspector Marker on the map so the user knows exactly what pixel is being read!
+                insp_click = st.session_state.get("inspector_click")
+                if insp_click:
+                    folium.Marker(
+                        location=[insp_click["lat"], insp_click["lng"]],
+                        tooltip="Inspector Target",
+                        icon=folium.Icon(color="black", icon="crosshairs", prefix="fa")
+                    ).add_to(m)
+
                 # Locked map with Inspector Active - listening for clicks to probe pixels
                 map_data = st_folium(m, height=MAP_HEIGHT, use_container_width=True, returned_objects=["last_clicked"], key="inspector_map")
                 if map_data and map_data.get("last_clicked"):
@@ -900,6 +937,12 @@ if catalog_mode == "Indices Analysis":
                         except Exception as e:
                             st.warning(f"Inspector failed: {e}")
             else:
+                # Clear inspector data if deactivated so it resets clean next time
+                if "inspector_data" in st.session_state:
+                    del st.session_state["inspector_data"]
+                if "inspector_click" in st.session_state:
+                    del st.session_state["inspector_click"]
+                
                 # Butter smooth static map! No lag on pan/zoom, no accidental clicks!
                 m.to_streamlit(height=MAP_HEIGHT)
         
