@@ -82,11 +82,12 @@ st.markdown("""
 if st.session_state.page == "landing":
     st.markdown("""
         <style>
-        /* Allow scroll on landing page and set 3-stripe background */
-        html, body, [data-testid="stAppViewContainer"] {
+        /* Allow scroll on landing page and set base white background */
+        html, body, [data-testid="stAppViewContainer"], .stApp, .main {
             height: auto !important;
             overflow-y: auto !important;
-            background: linear-gradient(to bottom, #ffffff 100vh, #1E3A8A 100vh) !important;
+            background: #ffffff !important;
+            scroll-behavior: smooth;
         }
         .main .block-container {
             max-width: 100%;
@@ -141,6 +142,8 @@ if st.session_state.page == "landing":
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             height: 100%;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            z-index: 1;
         }
         .doc-card:hover {
             transform: translateY(-5px);
@@ -193,6 +196,8 @@ if st.session_state.page == "landing":
         
         /* General buttons style */
         div.stButton > button {
+            position: relative !important;
+            z-index: 1 !important;
             background-color: #111827 !important;
             color: white !important;
             border-radius: 8px !important;
@@ -209,7 +214,13 @@ if st.session_state.page == "landing":
     """, unsafe_allow_html=True)
     
     # 1. Spacer to push down
-    st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style='height: 20vh;'></div>
+        <script>
+            // Attempt to force scroll to top on refresh
+            window.parent.scrollTo(0, 0);
+        </script>
+    """, unsafe_allow_html=True)
     
     # 2. Hero Content perfectly stacked
     st.markdown("""
@@ -237,7 +248,12 @@ if st.session_state.page == "landing":
     st.markdown("<div style='height: 35vh;'></div>", unsafe_allow_html=True)
     
     # --- SECOND PAGE (NAVY BLUE CARDS SECTION) ---
-    st.markdown("<h2 style='text-align: center; color: white; margin-bottom: 3rem;'>Select an Analysis Module</h2>", unsafe_allow_html=True)
+    st.markdown("""
+        <!-- Physical Navy Blue Background Block -->
+        <div style="position: absolute; left: -50vw; width: 200vw; height: 1500px; background-color: #1E3A8A; z-index: 0; pointer-events: none; margin-top: -6rem;"></div>
+        <!-- Title -->
+        <h2 style='text-align: center; color: white; margin-bottom: 3rem; position: relative; z-index: 1;'>Select an Analysis Module</h2>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2, gap="large")
     with col1:
@@ -264,7 +280,7 @@ if st.session_state.page == "landing":
             
     # --- THIRD SECTION (WHITE FULL-WIDTH FOOTER) ---
     st.markdown("""
-        <div style="width: 100vw; margin-left: calc(50% - 50vw); background-color: #ffffff; padding: 4rem 0 2rem 0; margin-top: 6rem; margin-bottom: -10rem;">
+        <div style="position: relative; z-index: 1; width: 100vw; margin-left: calc(50% - 50vw); background-color: #ffffff; padding: 4rem 0 2rem 0; margin-top: 6rem; margin-bottom: -10rem;">
             <div class='footer-container'>
                 <img class='footer-logo' src='https://lh3.googleusercontent.com/sitesv/AA5AbUComDqxzCfk5ju9if-jaRZgmBxYYFtKB0FH3wWmiq_2_cm-f1M5q6S7yq9nobNInl3hSiYZk2NedJo4hAAf2c4asIs_ezWj8TYvbOpSbz7kw0k9_jBErfnhLU4MkqYs6D9t6fuf8D8w8IUn81qFFDo53Dffa1rJGGa0yNf_YMZ6smDANmB4TAOcEIY=w16383'>
                 <div class='footer-title'>TERRASCAN: AN INTEGRATED SYSTEM FOR DECODING A DECADE OF SURFACE EVOLUTION.</div>
