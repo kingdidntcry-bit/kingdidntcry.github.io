@@ -86,11 +86,14 @@ if st.session_state.page == "landing":
         html, body, [data-testid="stAppViewContainer"] {
             height: auto !important;
             overflow-y: auto !important;
+            background: linear-gradient(to bottom, #ffffff 100vh, #0A192F 100vh) !important;
         }
         .main .block-container {
             max-width: 100%;
             margin: 0 auto;
-            padding-top: 0px;
+            padding-top: 0px !important;
+            padding-left: 5% !important;
+            padding-right: 5% !important;
             padding-bottom: 50px;
             display: block;
         }
@@ -102,7 +105,8 @@ if st.session_state.page == "landing":
             font-size: clamp(2rem, 4.8vw, 4rem);
             font-weight: 600;
             color: #111827;
-            margin-top: 2rem;
+            margin-top: -60px; /* Compensates for header for true visual center */
+            margin-bottom: 0;
             line-height: 1.1;
             letter-spacing: -0.02em;
             text-transform: capitalize;
@@ -149,15 +153,15 @@ if st.session_state.page == "landing":
         .footer-container {
             margin-top: 5rem;
             padding-top: 3rem;
-            border-top: 1px solid #E5E7EB;
+            border-top: 1px solid #1E293B;
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
-            color: #4B5563;
+            color: #94A3B8;
             font-size: 0.95rem;
             line-height: 1.8;
-            background-color: #F9FAFB;
+            background-color: transparent;
             border-radius: 12px;
             padding-bottom: 2rem;
         }
@@ -168,7 +172,7 @@ if st.session_state.page == "landing":
         }
         .footer-title {
             font-weight: 700;
-            color: #111827;
+            color: #F8FAFC;
             margin-bottom: 1rem;
             font-size: 1.1rem;
         }
@@ -199,7 +203,7 @@ if st.session_state.page == "landing":
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style='min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 60px;'>
+        <div style='height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;'>
             <div class='hero-title'>
                 Satellite Processing Systems<br>
                 For <span class='hero-human'>Conservation</span> And <span class='hero-agent'>UNESCO Heritage</span>
