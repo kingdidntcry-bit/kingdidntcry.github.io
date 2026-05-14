@@ -123,7 +123,7 @@ if st.session_state.page == "landing":
             text-transform: capitalize;
         }
         .hero-human { color: #3B82F6; font-weight: 500; text-decoration: underline; text-decoration-color: #BFDBFE; text-decoration-thickness: 4px; text-underline-offset: 4px;}
-        .hero-agent { color: #3B82F6; font-family: 'Courier New', monospace; font-weight: bold; letter-spacing: -2px;}
+        .hero-agent { color: #3B82F6; font-weight: 500; text-decoration: underline; text-decoration-color: #BFDBFE; text-decoration-thickness: 4px; text-underline-offset: 4px;}
         
         .hero-subtitle {
             text-align: center;
