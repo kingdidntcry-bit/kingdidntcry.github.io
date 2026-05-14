@@ -297,7 +297,7 @@ if st.session_state.page == "landing":
                 <p class='footer-info'><b>Team Members:</b> Raja Haziq Bin Raja Idzhar, Nurul Fatin Amira Binti Mohd Nasarrudin, and Eizra Akmal Binti Ellemy Iskandar.</p>
                 <p class='footer-info'><b>Supervisor:</b> Sr Dr Lau Chong Luh</p>
                 <p class='footer-info'><b>Institution:</b> Universiti Teknologi MARA (UiTM), Shah Alam</p>
-                <p class='footer-info'><b>Competition:</b> NGGSIC 2026 - National Geographic & Geomatic Student Innovation Competition (System and Innovation/Gadget)</p>
+                <p class='footer-info'><b>Competition:</b> 13th NGGSIC 2026 - National Geomatics/Geoinformatics Students Innovation Competition (System and Innovation/Gadget)</p>
                 <p class='footer-info' style='margin-top: 1rem;'><b>Contact:</b> <a class='footer-email' href='mailto:rajahaziq987@gmail.com'>rajahaziq987@gmail.com</a></p>
             </div>
         </div>
