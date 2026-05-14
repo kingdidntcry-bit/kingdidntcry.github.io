@@ -86,7 +86,7 @@ if st.session_state.page == "landing":
         html, body, [data-testid="stAppViewContainer"] {
             height: auto !important;
             overflow-y: auto !important;
-            background: linear-gradient(to bottom, #ffffff 100vh, #F8FAFC 100vh) !important;
+            background: #ffffff !important;
         }
         .main .block-container {
             max-width: 100%;
@@ -233,11 +233,116 @@ if st.session_state.page == "landing":
     btn_col1, btn_col2, btn_col3 = st.columns([1.5, 1, 1.5])
     with btn_col2:
         if st.button("Explore your way 🚀", use_container_width=True, key="explore_hero"):
-            st.session_state.page = "dashboard"
+            st.session_state.page = "catalog"
             st.rerun()
             
-    # 4. Spacer to complete the 100vh split
-    st.markdown("<div style='height: 35vh;'></div>", unsafe_allow_html=True)
+    st.stop()
+
+elif st.session_state.page == "catalog":
+    st.markdown("""
+        <style>
+        /* Reuse necessary CSS for the catalog page */
+        html, body, [data-testid="stAppViewContainer"] {
+            height: auto !important;
+            overflow-y: auto !important;
+            background: #F8FAFC !important;
+        }
+        .main .block-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding-top: 100px;
+            padding-bottom: 50px;
+            display: block;
+        }
+        [data-testid="stSidebar"] {display: none !important;}
+        [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {display: none !important;}
+        
+        .doc-card {
+            background-color: #ffffff;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            height: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .doc-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-color: #3B82F6;
+        }
+        .doc-card h3 {
+            margin-top: 0;
+            color: #111827;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .doc-card p {
+            color: #4B5563;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        
+        .footer-container {
+            margin-top: 5rem;
+            padding-top: 3rem;
+            border-top: 1px solid #E5E7EB;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            color: #4B5563;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            background-color: transparent;
+            border-radius: 12px;
+            padding-bottom: 2rem;
+        }
+        .footer-logo {
+            height: 70px;
+            object-fit: contain;
+            margin-bottom: 1.5rem;
+        }
+        .footer-title {
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        .footer-info {
+            margin: 0.3rem 0;
+        }
+        .footer-email {
+            color: #3B82F6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        /* General buttons style */
+        div.stButton > button {
+            background-color: #111827 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 0.6rem 1.5rem !important;
+            font-size: 1.05rem !important;
+            font-weight: 600 !important;
+            border: none !important;
+            width: 100% !important;
+        }
+        div.stButton > button:hover {
+            background-color: #374151 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    col_back, _ = st.columns([1, 4])
+    with col_back:
+        if st.button("← Return to Home", key="btn_back_home"):
+            st.session_state.page = "landing"
+            st.rerun()
+
+    st.markdown("<h2 style='text-align: center; color: #111827; margin-bottom: 3rem;'>Select an Analysis Module</h2>", unsafe_allow_html=True)
     
     # --- Interactive Cards ---
     col1, col2 = st.columns(2, gap="large")
@@ -296,6 +401,7 @@ st.markdown("""
     }
     [data-testid="stSidebarCollapsedControl"],
     [data-testid="collapsedControl"] {
+        position: fixed !important;
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -307,6 +413,7 @@ st.markdown("""
         color: black !important;
         pointer-events: auto !important;
         top: 75px !important;
+        left: 1rem !important;
     }
     
     [data-testid="stSidebar"] {
