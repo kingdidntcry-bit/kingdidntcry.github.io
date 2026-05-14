@@ -61,6 +61,15 @@ if "page" not in st.session_state:
 
 # --- Global Header ---
 st.markdown("""
+    <style>
+        [data-testid="stHeader"] {
+            background: transparent !important;
+            pointer-events: none;
+        }
+        [data-testid="stToolbar"] {
+            pointer-events: auto;
+        }
+    </style>
     <div style='position: fixed; top: 0; left: 0; width: 100%; height: 60px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; align-items: center; padding-left: 60px; gap: 16px; z-index: 999980; pointer-events: none;'>
         <div style='font-size: 1.4rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; pointer-events: auto;'>
             ☁ TerraScan
@@ -81,7 +90,7 @@ if st.session_state.page == "landing":
         .main .block-container {
             max-width: 100%;
             margin: 0 auto;
-            padding-top: 100px;
+            padding-top: 0px;
             padding-bottom: 50px;
             display: block;
         }
@@ -190,12 +199,14 @@ if st.session_state.page == "landing":
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div class='hero-title'>
-            Satellite Processing Systems<br>
-            For <span class='hero-human'>Conservation</span> And <span class='hero-agent'>UNESCO Heritage</span>
-        </div>
-        <div class='hero-subtitle' style='text-transform: capitalize;'>
-            Keep Environmental Analysts And Preservation Models Aligned With TerraScan's Scalable Cloud Platform.
+        <div style='min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 60px;'>
+            <div class='hero-title'>
+                Satellite Processing Systems<br>
+                For <span class='hero-human'>Conservation</span> And <span class='hero-agent'>UNESCO Heritage</span>
+            </div>
+            <div class='hero-subtitle' style='text-transform: capitalize;'>
+                Keep Environmental Analysts And Preservation Models Aligned With TerraScan's Scalable Cloud Platform.
+            </div>
         </div>
     """, unsafe_allow_html=True)
     
