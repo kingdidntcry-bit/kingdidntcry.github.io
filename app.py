@@ -937,22 +937,25 @@ if catalog_mode == "Indices Analysis":
             else:
                 c_min, c_max, c_pal = -1.0, 1.0, "black, white"
     
-            insp = st.session_state.get("inspector_data")
-            marker_html_left = ""
-            marker_html_right = ""
+            is_inspector_on = st.session_state.get("inspector_active", False) and st.session_state.get("map_locked", False)
             
-            if insp:
-                val_base = insp.get("baseline")
-                if val_base is not None and isinstance(val_base, (int, float)):
-                    pct_b = ((max(c_min, min(c_max, val_base)) - c_min) / (c_max - c_min)) * 100
-                    marker_html_left = f"<div style='position: absolute; right: -18px; bottom: {pct_b}%; transform: translateY(50%); font-size: 1rem; color: #4B5563; z-index: 10;'>◀</div>"
+            if is_inspector_on:
+                insp = st.session_state.get("inspector_data")
+                marker_html_left = ""
+                marker_html_right = ""
                 
-                val_comp = insp.get("comparison")
-                if val_comp is not None and isinstance(val_comp, (int, float)):
-                    pct_c = ((max(c_min, min(c_max, val_comp)) - c_min) / (c_max - c_min)) * 100
-                    marker_html_right = f"<div style='position: absolute; left: -18px; bottom: {pct_c}%; transform: translateY(50%); font-size: 1rem; color: #1e40af; z-index: 10;'>▶</div>"
+                if insp:
+                    val_base = insp.get("baseline")
+                    if val_base is not None and isinstance(val_base, (int, float)):
+                        pct_b = ((max(c_min, min(c_max, val_base)) - c_min) / (c_max - c_min)) * 100
+                        marker_html_left = f"<div style='position: absolute; right: -18px; bottom: {pct_b}%; transform: translateY(50%); font-size: 1rem; color: #4B5563; z-index: 10;'>◀</div>"
+                    
+                    val_comp = insp.get("comparison")
+                    if val_comp is not None and isinstance(val_comp, (int, float)):
+                        pct_c = ((max(c_min, min(c_max, val_comp)) - c_min) / (c_max - c_min)) * 100
+                        marker_html_right = f"<div style='position: absolute; left: -18px; bottom: {pct_c}%; transform: translateY(50%); font-size: 1rem; color: #1e40af; z-index: 10;'>▶</div>"
 
-            st.markdown(
+                st.markdown(
 f"""<div style="display: flex; justify-content: center; gap: 3rem; width: 100%; padding: 1rem 0;">
     <!-- LEFT MAP LEGEND -->
     <div style="display: flex; flex-direction: column; align-items: center;">
@@ -973,18 +976,26 @@ f"""<div style="display: flex; justify-content: center; gap: 3rem; width: 100%; 
         <div style="margin-top: 5px; font-weight: 600; font-size: 1rem;">{c_min}</div>
     </div>
 </div>""", unsafe_allow_html=True)
-            
-            if insp:
-                b_text = f"{insp['baseline']:.3f}" if isinstance(insp.get("baseline"), (int, float)) else "No Data"
-                c_text = f"{insp['comparison']:.3f}" if isinstance(insp.get("comparison"), (int, float)) else "No Data"
-                st.markdown(f"""
-                <div style='background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #3B82F6;'>
-                    <h5 style='margin: 0 0 0.5rem 0;'>📍 Inspector Reading</h5>
-                    <p style='margin: 0; font-size: 0.8rem; color: #4B5563;'>Lat: {insp['lat']:.4f}, Lng: {insp['lng']:.4f}</p>
-                    <p style='margin: 0.5rem 0 0 0; font-weight: 600;'>Left Map: <span style='color: #4B5563;'>{b_text}</span></p>
-                    <p style='margin: 0; font-weight: 600; color: #1e40af;'>Right Map: {c_text}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                
+                if insp:
+                    b_text = f"{insp['baseline']:.3f}" if isinstance(insp.get("baseline"), (int, float)) else "No Data"
+                    c_text = f"{insp['comparison']:.3f}" if isinstance(insp.get("comparison"), (int, float)) else "No Data"
+                    st.markdown(f"""
+                    <div style='background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #3B82F6;'>
+                        <h5 style='margin: 0 0 0.5rem 0;'>📍 Inspector Reading</h5>
+                        <p style='margin: 0; font-size: 0.8rem; color: #4B5563;'>Lat: {insp['lat']:.4f}, Lng: {insp['lng']:.4f}</p>
+                        <p style='margin: 0.5rem 0 0 0; font-weight: 600;'>Left Map: <span style='color: #4B5563;'>{b_text}</span></p>
+                        <p style='margin: 0; font-weight: 600; color: #1e40af;'>Right Map: {c_text}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                # Default single colorbar layout when inspector is off
+                st.markdown(
+f"""<div style="display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem 0;">
+    <div style="margin-bottom: 5px; font-weight: 600; font-size: 1.1rem;">{c_max}</div>
+    <div style="width: 40px; height: 250px; background: linear-gradient(to top, {c_pal}); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);"></div>
+    <div style="margin-top: 5px; font-weight: 600; font-size: 1.1rem;">{c_min}</div>
+</div>""", unsafe_allow_html=True)
     
     # --- Full Width Footer (Documentation) ---
     st.markdown("---")
