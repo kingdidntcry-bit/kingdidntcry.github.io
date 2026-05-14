@@ -86,7 +86,7 @@ if st.session_state.page == "landing":
         html, body, [data-testid="stAppViewContainer"] {
             height: auto !important;
             overflow-y: auto !important;
-            background: linear-gradient(to bottom, #ffffff 100vh, #0A192F 100vh) !important;
+            background: linear-gradient(to bottom, #ffffff 100vh, #F8FAFC 100vh) !important;
         }
         .main .block-container {
             max-width: 100%;
@@ -116,8 +116,7 @@ if st.session_state.page == "landing":
             font-size: clamp(2rem, 4.8vw, 4rem);
             font-weight: 600;
             color: #111827;
-            margin-top: -60px; /* Compensates for header for true visual center */
-            margin-bottom: 0;
+            margin: 0;
             line-height: 1.1;
             letter-spacing: -0.02em;
             text-transform: capitalize;
@@ -164,12 +163,12 @@ if st.session_state.page == "landing":
         .footer-container {
             margin-top: 5rem;
             padding-top: 3rem;
-            border-top: 1px solid #1E293B;
+            border-top: 1px solid #E5E7EB;
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
-            color: #94A3B8;
+            color: #4B5563;
             font-size: 0.95rem;
             line-height: 1.8;
             background-color: transparent;
@@ -183,7 +182,7 @@ if st.session_state.page == "landing":
         }
         .footer-title {
             font-weight: 700;
-            color: #F8FAFC;
+            color: #111827;
             margin-bottom: 1rem;
             font-size: 1.1rem;
         }
@@ -213,8 +212,12 @@ if st.session_state.page == "landing":
         </style>
     """, unsafe_allow_html=True)
     
+    # 1. Spacer to push down
+    st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+    
+    # 2. Content perfectly stacked
     st.markdown("""
-        <div style='height: 50vh; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 2rem;'>
+        <div style='display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;'>
             <div class='banner'>TerraScan Is Live →</div>
             <div class='hero-title'>
                 Satellite Processing Systems<br>
@@ -226,15 +229,15 @@ if st.session_state.page == "landing":
         </div>
     """, unsafe_allow_html=True)
     
-    # Native Explore button centered via columns
+    # 3. Native Explore button centered via columns
     btn_col1, btn_col2, btn_col3 = st.columns([1.5, 1, 1.5])
     with btn_col2:
         if st.button("Explore your way 🚀", use_container_width=True, key="explore_hero"):
             st.session_state.page = "dashboard"
             st.rerun()
             
-    # Spacer to complete the 100vh split for the navy blue gradient
-    st.markdown("<div style='height: 40vh;'></div>", unsafe_allow_html=True)
+    # 4. Spacer to complete the 100vh split
+    st.markdown("<div style='height: 35vh;'></div>", unsafe_allow_html=True)
     
     # --- Interactive Cards ---
     col1, col2 = st.columns(2, gap="large")
