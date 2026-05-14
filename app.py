@@ -82,11 +82,11 @@ st.markdown("""
 if st.session_state.page == "landing":
     st.markdown("""
         <style>
-        /* Allow scroll on landing page */
+        /* Allow scroll on landing page and set 3-stripe background */
         html, body, [data-testid="stAppViewContainer"] {
             height: auto !important;
             overflow-y: auto !important;
-            background: #ffffff !important;
+            background: linear-gradient(to bottom, #ffffff 100vh, #1E3A8A 100vh) !important;
         }
         .main .block-container {
             max-width: 100%;
@@ -94,7 +94,7 @@ if st.session_state.page == "landing":
             padding-top: 0px !important;
             padding-left: 5% !important;
             padding-right: 5% !important;
-            padding-bottom: 50px;
+            padding-bottom: 0px !important;
             display: block;
         }
         [data-testid="stSidebar"] {display: none !important;}
@@ -161,9 +161,6 @@ if st.session_state.page == "landing":
         }
         
         .footer-container {
-            margin-top: 5rem;
-            padding-top: 3rem;
-            border-top: 1px solid #E5E7EB;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -171,9 +168,8 @@ if st.session_state.page == "landing":
             color: #4B5563;
             font-size: 0.95rem;
             line-height: 1.8;
-            background-color: transparent;
-            border-radius: 12px;
-            padding-bottom: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
         }
         .footer-logo {
             height: 70px;
@@ -215,7 +211,7 @@ if st.session_state.page == "landing":
     # 1. Spacer to push down
     st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
     
-    # 2. Content perfectly stacked
+    # 2. Hero Content perfectly stacked
     st.markdown("""
         <div style='display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;'>
             <div class='banner'>TerraScan Is Live →</div>
@@ -233,120 +229,17 @@ if st.session_state.page == "landing":
     btn_col1, btn_col2, btn_col3 = st.columns([1.5, 1, 1.5])
     with btn_col2:
         if st.button("Explore your way 🚀", use_container_width=True, key="explore_hero"):
-            st.session_state.page = "catalog"
+            # Point back directly to dashboard as user originally had
+            st.session_state.page = "dashboard"
             st.rerun()
             
-    st.stop()
-
-elif st.session_state.page == "catalog":
-    st.markdown("""
-        <style>
-        /* Reuse necessary CSS for the catalog page */
-        html, body, [data-testid="stAppViewContainer"] {
-            height: auto !important;
-            overflow-y: auto !important;
-            background: #F8FAFC !important;
-        }
-        .main .block-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding-top: 100px;
-            padding-bottom: 50px;
-            display: block;
-        }
-        [data-testid="stSidebar"] {display: none !important;}
-        [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {display: none !important;}
-        
-        .doc-card {
-            background-color: #ffffff;
-            border: 1px solid #E5E7EB;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            height: 100%;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .doc-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            border-color: #3B82F6;
-        }
-        .doc-card h3 {
-            margin-top: 0;
-            color: #111827;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        .doc-card p {
-            color: #4B5563;
-            font-size: 1.05rem;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-        
-        .footer-container {
-            margin-top: 5rem;
-            padding-top: 3rem;
-            border-top: 1px solid #E5E7EB;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            color: #4B5563;
-            font-size: 0.95rem;
-            line-height: 1.8;
-            background-color: transparent;
-            border-radius: 12px;
-            padding-bottom: 2rem;
-        }
-        .footer-logo {
-            height: 70px;
-            object-fit: contain;
-            margin-bottom: 1.5rem;
-        }
-        .footer-title {
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-        }
-        .footer-info {
-            margin: 0.3rem 0;
-        }
-        .footer-email {
-            color: #3B82F6;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        /* General buttons style */
-        div.stButton > button {
-            background-color: #111827 !important;
-            color: white !important;
-            border-radius: 8px !important;
-            padding: 0.6rem 1.5rem !important;
-            font-size: 1.05rem !important;
-            font-weight: 600 !important;
-            border: none !important;
-            width: 100% !important;
-        }
-        div.stButton > button:hover {
-            background-color: #374151 !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # 4. Spacer to complete the exact 100vh split for the navy blue gradient
+    st.markdown("<div style='height: 35vh;'></div>", unsafe_allow_html=True)
     
-    col_back, _ = st.columns([1, 4])
-    with col_back:
-        if st.button("← Return to Home", key="btn_back_home"):
-            st.session_state.page = "landing"
-            st.rerun()
-
-    st.markdown("<h2 style='text-align: center; color: #111827; margin-bottom: 3rem;'>Select an Analysis Module</h2>", unsafe_allow_html=True)
+    # --- SECOND PAGE (NAVY BLUE CARDS SECTION) ---
+    st.markdown("<h2 style='text-align: center; color: white; margin-bottom: 3rem;'>Select an Analysis Module</h2>", unsafe_allow_html=True)
     
-    # --- Interactive Cards ---
     col1, col2 = st.columns(2, gap="large")
-    
     with col1:
         st.markdown("""
             <div class='doc-card'>
@@ -369,16 +262,18 @@ elif st.session_state.page == "catalog":
             st.session_state.page = "dashboard"
             st.rerun()
             
-    # --- Institutional Footer ---
+    # --- THIRD SECTION (WHITE FULL-WIDTH FOOTER) ---
     st.markdown("""
-        <div class='footer-container'>
-            <img class='footer-logo' src='https://lh3.googleusercontent.com/sitesv/AA5AbUComDqxzCfk5ju9if-jaRZgmBxYYFtKB0FH3wWmiq_2_cm-f1M5q6S7yq9nobNInl3hSiYZk2NedJo4hAAf2c4asIs_ezWj8TYvbOpSbz7kw0k9_jBErfnhLU4MkqYs6D9t6fuf8D8w8IUn81qFFDo53Dffa1rJGGa0yNf_YMZ6smDANmB4TAOcEIY=w16383'>
-            <div class='footer-title'>TERRASCAN: AN INTEGRATED SYSTEM FOR DECODING A DECADE OF SURFACE EVOLUTION.</div>
-            <p class='footer-info'><b>Team Members:</b> Raja Haziq Bin Raja Idzhar, Nurul Fatin Amira Binti Mohd Nasarrudin, and Eizra Akmal Binti Ellemy Iskandar.</p>
-            <p class='footer-info'><b>Supervisor:</b> Sr Dr Lau Chong Luh</p>
-            <p class='footer-info'><b>Institution:</b> Universiti Teknologi MARA (UiTM), Shah Alam</p>
-            <p class='footer-info'><b>Competition:</b> NGGSIC 2026 - National Geographic & Geomatic Student Innovation Competition (System and Innovation/Gadget)</p>
-            <p class='footer-info' style='margin-top: 1rem;'><b>Contact:</b> <a class='footer-email' href='mailto:rajahaziq987@gmail.com'>rajahaziq987@gmail.com</a></p>
+        <div style="width: 100vw; margin-left: calc(50% - 50vw); background-color: #ffffff; padding: 4rem 0 2rem 0; margin-top: 6rem; margin-bottom: -10rem;">
+            <div class='footer-container'>
+                <img class='footer-logo' src='https://lh3.googleusercontent.com/sitesv/AA5AbUComDqxzCfk5ju9if-jaRZgmBxYYFtKB0FH3wWmiq_2_cm-f1M5q6S7yq9nobNInl3hSiYZk2NedJo4hAAf2c4asIs_ezWj8TYvbOpSbz7kw0k9_jBErfnhLU4MkqYs6D9t6fuf8D8w8IUn81qFFDo53Dffa1rJGGa0yNf_YMZ6smDANmB4TAOcEIY=w16383'>
+                <div class='footer-title'>TERRASCAN: AN INTEGRATED SYSTEM FOR DECODING A DECADE OF SURFACE EVOLUTION.</div>
+                <p class='footer-info'><b>Team Members:</b> Raja Haziq Bin Raja Idzhar, Nurul Fatin Amira Binti Mohd Nasarrudin, and Eizra Akmal Binti Ellemy Iskandar.</p>
+                <p class='footer-info'><b>Supervisor:</b> Sr Dr Lau Chong Luh</p>
+                <p class='footer-info'><b>Institution:</b> Universiti Teknologi MARA (UiTM), Shah Alam</p>
+                <p class='footer-info'><b>Competition:</b> NGGSIC 2026 - National Geographic & Geomatic Student Innovation Competition (System and Innovation/Gadget)</p>
+                <p class='footer-info' style='margin-top: 1rem;'><b>Contact:</b> <a class='footer-email' href='mailto:rajahaziq987@gmail.com'>rajahaziq987@gmail.com</a></p>
+            </div>
         </div>
     """, unsafe_allow_html=True)
             
