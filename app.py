@@ -214,13 +214,23 @@ if st.session_state.page == "landing":
     """, unsafe_allow_html=True)
     
     # 1. Spacer to push down
-    st.markdown("""
-        <div style='height: 20vh;'></div>
+    st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+    
+    # Force scroll to top using Streamlit components (since st.markdown strips scripts)
+    import streamlit.components.v1 as components
+    components.html(
+        """
         <script>
-            // Attempt to force scroll to top on refresh
-            window.parent.scrollTo(0, 0);
+            const main = window.parent.document.querySelector('.main') || window.parent.document.documentElement;
+            if (main) {
+                main.scrollTop = 0;
+                setTimeout(() => { main.scrollTop = 0; }, 100);
+            }
         </script>
-    """, unsafe_allow_html=True)
+        """,
+        height=0,
+        width=0,
+    )
     
     # 2. Hero Content perfectly stacked
     st.markdown("""
