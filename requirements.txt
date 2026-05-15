@@ -9,3 +9,4 @@ Pillow
 requests
 google-auth
 imageio-ffmpeg
+plotly

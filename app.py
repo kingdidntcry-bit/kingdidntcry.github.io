@@ -1,6 +1,22 @@
-import streamlit as st
+import base64
+import datetime
+import io
+import json
+import os
+from concurrent.futures import ThreadPoolExecutor
 
+import ee
+import folium
+import folium.plugins
+import geemap
+import leafmap.foliumap as foliumap
+import numpy as np
+import plotly.graph_objects as go
 import requests
+import streamlit as st
+import streamlit.components.v1 as components
+from PIL import Image, ImageDraw, ImageFont, ImageSequence
+from streamlit_folium import st_folium
 
 @st.cache_data(show_spinner=False)
 def get_location_name(lat, lon):
@@ -21,17 +37,17 @@ def get_location_name(lat, lon):
     return f"Lat: {round(lat, 2)}, Lon: {round(lon, 2)}"
 
 
-import base64
-from PIL import Image, ImageSequence, ImageDraw, ImageFont
-import os
-import geemap
-from streamlit_folium import st_folium
-import ee
-import datetime
-import folium.plugins
-import leafmap.foliumap as foliumap
-import json
-from concurrent.futures import ThreadPoolExecutor
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_britannica_mountains():
+    try:
+        with open(BRITANNICA_MOUNTAINS_FILE, "r", encoding="utf-8") as f:
+            records = json.load(f)
+        if isinstance(records, list):
+            return sorted(records, key=lambda r: (r.get("country", ""), r.get("mountain", "")))
+    except Exception:
+        return []
+    return []
+
 
 # --- Setup & Initialize ---
 st.set_page_config(layout="wide", page_title="TerraScan")
@@ -42,6 +58,28 @@ EE_PROJECT = "geomatic-competition-2026"
 DEFAULT_BASEMAP = "CartoDB.Positron"
 MAP_HEIGHT = 460
 UNESCO_WHC_API_URL = "https://data.unesco.org/api/explore/v2.0/catalog/datasets/whc001/records"
+BRITANNICA_MOUNTAINS_FILE = "data/brit_mountains.json"
+SRTM_ASSET_ID = "USGS/SRTMGL1_003"
+TERRAIN_PALETTES = {
+    "Terrain": ["#0B3D0B", "#2E8B57", "#86B65B", "#C8B77D", "#8F6E4B", "#F2F2F2"],
+    "Turbo": ["#30123B", "#4146B6", "#3EA3F9", "#6CCE5A", "#F9F871", "#F78B2D", "#C61B1F"],
+    "Viridis": ["#440154", "#3B528B", "#21918C", "#5EC962", "#FDE725"],
+    "Magma": ["#000004", "#3B0F70", "#8C2981", "#DE4968", "#FE9F6D", "#FCFDBF"],
+    "Cividis": ["#00204C", "#2E4A7D", "#576D8C", "#8A8F78", "#BDAE58", "#FFE945"],
+    "Earth Relief": ["#163A1F", "#2D6A2D", "#6DA34D", "#C2B280", "#8D6E63", "#F5F5F5"],
+    "Ice": ["#0B1F3A", "#1D4E89", "#4DA8DA", "#A9D6E5", "#EAF6FF"],
+    "Sunset": ["#2B0B3F", "#6A1B9A", "#C2185B", "#F57C00", "#FFD54F"],
+}
+INDEX_VIS_PARAMS = {
+    "NDVI": {"bands": ["NDVI"], "min": -1.0, "max": 1.0, "palette": ["red", "yellow", "green"]},
+    "NDBI": {"bands": ["NDBI"], "min": -1.0, "max": 1.0, "palette": ["green", "yellow", "red"]},
+    "NDMI": {"bands": ["NDMI"], "min": -1.0, "max": 1.0, "palette": ["brown", "yellow", "blue"]},
+    "NDWI": {"bands": ["NDWI"], "min": -1.0, "max": 1.0, "palette": ["brown", "white", "blue"]},
+    "MNDWI": {"bands": ["MNDWI"], "min": -1.0, "max": 1.0, "palette": ["brown", "white", "cyan"]},
+    "EVI": {"bands": ["EVI"], "min": -1.0, "max": 1.0, "palette": ["red", "yellow", "green"]},
+    "SAVI": {"bands": ["SAVI"], "min": -1.0, "max": 1.0, "palette": ["red", "yellow", "green"]},
+    "LST": {"bands": ["LST"], "min": 20.0, "max": 45.0, "palette": ["blue", "yellow", "red"]},
+}
 
 SESSION_DEFAULTS = {
     "persistent_click": None,
@@ -49,7 +87,15 @@ SESSION_DEFAULTS = {
     "persistent_zoom": DEFAULT_ZOOM,
     "persistent_center": DEFAULT_CENTER,
     "selected_unesco_site_id": None,
-    "ml_cache": None,
+    "terrain_center": DEFAULT_CENTER,
+    "terrain_zoom": DEFAULT_ZOOM,
+    "terrain_click": None,
+    "terrain_inspector": None,
+    "terrain_mountain_id": None,
+    "terrain_extent_km": 15,
+    "terrain_z_exag": 3.0,
+    "terrain_sampling_scale": 270,
+    "terrain_inspector_enabled": False,
 }
 for key, value in SESSION_DEFAULTS.items():
     if key not in st.session_state:
@@ -217,7 +263,6 @@ if st.session_state.page == "landing":
     st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
     
     # Force scroll to top using Streamlit components (since st.markdown strips scripts)
-    import streamlit.components.v1 as components
     components.html(
         """
         <script>
@@ -265,7 +310,7 @@ if st.session_state.page == "landing":
         <h2 style='text-align: center; color: white; margin-bottom: 3rem; position: relative; z-index: 1;'>Select an Analysis Module</h2>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2, gap="large")
+    col1, col2, col3 = st.columns(3, gap="large")
     with col1:
         st.markdown("""
             <div class='doc-card'>
@@ -285,6 +330,17 @@ if st.session_state.page == "landing":
             </div>
         """, unsafe_allow_html=True)
         if st.button("Learn More / Open Tool", key="btn_timelapse"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+
+    with col3:
+        st.markdown("""
+            <div class='doc-card'>
+                <h3>🏔️ Terrain Engine: 3D Elevation</h3>
+                <p>Visualize and quantify global mountain topography from SRTM 30m data. Explore elevation, slope, and interactive 3D terrain surfaces.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Learn More / Open Tool", key="btn_terrain"):
             st.session_state.page = "dashboard"
             st.rerun()
             
@@ -363,11 +419,13 @@ if st.sidebar.button("← Return to Home", use_container_width=True):
 
 st.sidebar.title("TerraScan Catalog")
 
-catalog_mode = st.sidebar.radio("Processing Modules", ["Indices Analysis", "Timelapse Viewer"])
+catalog_mode = st.sidebar.radio(
+    "Processing Modules",
+    ["Indices Analysis", "Timelapse Viewer", "Terrain Engine: 3D Elevation"],
+)
 
 # --- Main App Dashboard ---
 st.sidebar.markdown("---")
-run_ml = False
 
 try:
     # 1. Try Service Account from Secrets (Streamlit Cloud best practice)
@@ -376,7 +434,6 @@ try:
         
         # Robust handling for string vs dict secrets
         if isinstance(sa_info, str):
-            import json
             try:
                 # Try parsing as JSON first
                 sa_info = json.loads(sa_info)
@@ -421,10 +478,9 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
             
     current_y = datetime.date.today().year
 
-    st.subheader("General Parameters")
-    roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
-
     if catalog_mode == "Indices Analysis":
+        st.subheader("General Parameters")
+        roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
         st.subheader("Data Source")
         data_source = st.radio("Select Satellite Interface", ["Landsat (30m)", "Sentinel (10m)"])
     
@@ -437,14 +493,49 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
         if data_source == "Landsat (30m)":
             available_indices.append("LST")
         layer_selection = st.selectbox("Select Layer to Display", available_indices)
-    else:
+    elif catalog_mode == "Timelapse Viewer":
+        st.subheader("General Parameters")
+        roi_radius = st.selectbox("Analysis Radius", ["5 km", "10 km"])
+
         st.subheader("Timelapse Settings")
         tl_start_year = st.selectbox("Start Year", range(1984, current_y), index=0)
         tl_end_year = st.selectbox("End Year", range(1984, current_y + 1), index=current_y - 1984)
         tl_fps = st.slider("Frames Per Second", 1, 10, 5)
         tl_bands = st.selectbox("Band Combination", ["True Color (Red, Green, Blue)", "Color Infrared (NIR, Red, Green)", "SWIR (SWIR2, SWIR1, Red)"])
         run_tl = st.button("Generate Timelapse", use_container_width=True)
+    else:
+        mountains = load_britannica_mountains()
+        if not mountains:
+            st.warning("Mountain catalog could not be loaded from data/brit_mountains.json.")
 
+        st.subheader("Mountain Selector")
+        countries = sorted({m["country"] for m in mountains}) if mountains else []
+        terrain_country = st.selectbox("Country", countries, key="terrain_country_picker") if countries else None
+
+        filtered = [m for m in mountains if m["country"] == terrain_country] if terrain_country else []
+        terrain_labels = [f"{m['mountain']} ({m.get('elevation_m', 'n/a')} m)" for m in filtered]
+        selected_mountain_label = st.selectbox("Mountain Name", terrain_labels, key="terrain_mountain_picker") if terrain_labels else None
+        if selected_mountain_label:
+            selected_mountain = next(
+                (m for m in filtered if f"{m['mountain']} ({m.get('elevation_m', 'n/a')} m)" == selected_mountain_label),
+                None,
+            )
+            if selected_mountain and st.session_state.get("terrain_mountain_id") != selected_mountain["id"]:
+                st.session_state["terrain_mountain_id"] = selected_mountain["id"]
+                st.session_state["terrain_center"] = [selected_mountain["lat"], selected_mountain["lng"]]
+                st.session_state["terrain_zoom"] = 11
+                st.session_state["terrain_click"] = {"lat": selected_mountain["lat"], "lng": selected_mountain["lng"]}
+                st.session_state["terrain_inspector"] = None
+
+        st.subheader("Terrain Visualization")
+        terrain_palette_name = st.selectbox("DEM Palette", list(TERRAIN_PALETTES.keys()), index=0, key="terrain_palette")
+
+        st.subheader("Terrain Region")
+        terrain_extent_km = st.slider("Region Radius (km)", 4, 35, 15, key="terrain_extent_km")
+
+        st.subheader("3D Viewer")
+        terrain_vertical_exaggeration = st.slider("Vertical Scale (Flatten < 1.0, Exaggerate > 1.0)", 0.2, 4.0, 3.0, 0.05, key="terrain_z_exag")
+        terrain_sample_scale_m = st.slider("3D Sampling Scale (m)", 90, 360, 270, 30, key="terrain_sampling_scale")
 
 # --- GEE Backend Functions ---
 def get_landsat_collection(start_date, end_date):
@@ -581,6 +672,23 @@ def get_image_download_url(image, filename, source):
         return url
     except Exception as e:
         return None
+
+
+def get_visualization_params(layer_selection, data_source):
+    if layer_selection == "True Color":
+        if data_source == "Landsat (30m)":
+            return {"bands": ["SR_B4", "SR_B3", "SR_B2"], "min": 0.0, "max": 0.3}
+        return {"bands": ["B4", "B3", "B2"], "min": 0.0, "max": 0.3}
+    return INDEX_VIS_PARAMS.get(layer_selection, {"bands": [layer_selection], "min": -1.0, "max": 1.0})
+
+
+def get_legend_meta(layer_selection):
+    if layer_selection == "True Color":
+        return None
+    params = INDEX_VIS_PARAMS.get(layer_selection)
+    if not params:
+        return -1.0, 1.0, "black, white"
+    return params["min"], params["max"], ", ".join(params.get("palette", ["black", "white"]))
 
 
 def render_export_buttons(click_pt, baseline_img, comp_img, layer_selection, baseline_year, comparison_year, data_source):
@@ -722,6 +830,93 @@ def fetch_unesco_sites():
         return []
 
 
+def get_terrain_dem():
+    return ee.Image(SRTM_ASSET_ID).select("elevation")
+
+
+def get_terrain_roi(lat, lng, radius_km):
+    return ee.Geometry.Point([lng, lat]).buffer(radius_km * 1000).bounds()
+
+
+def _safe_float(value, default):
+    try:
+        if value is None:
+            return float(default)
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def get_terrain_layer_url(lat, lng, radius_km, palette_name):
+    roi = get_terrain_roi(lat, lng, radius_km)
+    dem = get_terrain_dem().clip(roi)
+
+    stats = dem.reduceRegion(
+        reducer=ee.Reducer.minMax(),
+        geometry=roi,
+        scale=30,
+        maxPixels=1e9,
+        bestEffort=True,
+    ).getInfo() or {}
+    elev_min = _safe_float(stats.get("elevation_min"), 0.0)
+    elev_max = _safe_float(stats.get("elevation_max"), 3000.0)
+    if elev_max <= elev_min:
+        elev_max = elev_min + 1.0
+
+    palette = TERRAIN_PALETTES.get(palette_name, TERRAIN_PALETTES["Terrain"])
+    tile_url = dem.getMapId(
+        {"min": elev_min, "max": elev_max, "palette": palette}
+    )["tile_fetcher"].url_format
+
+    return tile_url, elev_min, elev_max, roi
+
+
+def get_terrain_point_metrics(lat, lng):
+    point = ee.Geometry.Point([lng, lat])
+    dem = get_terrain_dem()
+    slope = ee.Terrain.slope(dem).rename("slope")
+    values = dem.addBands(slope).reduceRegion(
+        reducer=ee.Reducer.first(),
+        geometry=point,
+        scale=30,
+        maxPixels=1e6,
+    ).getInfo() or {}
+    return {
+        "elevation": values.get("elevation"),
+        "slope": values.get("slope"),
+    }
+
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def fetch_terrain_surface_grid(lat, lng, radius_km, sample_scale_m):
+    roi = get_terrain_roi(lat, lng, radius_km)
+    radius_m = float(radius_km) * 1000.0
+    adaptive_scale = max(float(sample_scale_m), (radius_m * 2.0) / 220.0)
+
+    dem = get_terrain_dem().clip(roi).resample("bilinear").reproject(crs="EPSG:4326", scale=adaptive_scale)
+    sample_image = dem.addBands(ee.Image.pixelLonLat())
+    payload = sample_image.sampleRectangle(region=roi, defaultValue=-9999).getInfo() or {}
+    props = payload.get("properties", {})
+
+    z = np.array(props.get("elevation", []), dtype=float)
+    lon = np.array(props.get("longitude", []), dtype=float)
+    lat_arr = np.array(props.get("latitude", []), dtype=float)
+
+    if z.size == 0 or z.ndim != 2:
+        return None
+
+    z[z <= -9999] = np.nan
+    if lon.shape != z.shape or lat_arr.shape != z.shape:
+        lon = np.tile(np.linspace(lng - 0.2, lng + 0.2, z.shape[1]), (z.shape[0], 1))
+        lat_arr = np.tile(np.linspace(lat + 0.2, lat - 0.2, z.shape[0]).reshape(-1, 1), (1, z.shape[1]))
+
+    return {
+        "z": z.tolist(),
+        "lon": lon.tolist(),
+        "lat": lat_arr.tolist(),
+    }
+
+
 # --- Top App Layout (Map & Classification) ---
 if catalog_mode == "Indices Analysis":
     col_map, col_stats = st.columns([2, 1])
@@ -811,39 +1006,10 @@ if catalog_mode == "Indices Analysis":
                 baseline_img = get_annual_median(baseline_year, data_source).clip(roi)
                 comp_img = get_annual_median(comparison_year, data_source).clip(roi)
             
-                if layer_selection == "NDVI":
-                    vis_params = {'bands': ['NDVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                    def fetch_url(img): 
-                        return img.getMapId(vis_params)['tile_fetcher'].url_format
-                elif layer_selection == "LST" and data_source == "Landsat (30m)":
-                    vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
+                vis_params = get_visualization_params(layer_selection, data_source)
+                if layer_selection == "LST" and data_source == "Landsat (30m)":
                     baseline_img = calculate_manual_lst(baseline_img)
                     comp_img = calculate_manual_lst(comp_img)
-                    def fetch_url(img):
-                        return img.getMapId(vis_params)['tile_fetcher'].url_format
-                else:
-                    if layer_selection == "True Color":
-                        if data_source == "Landsat (30m)":
-                            vis_params = {'bands': ['SR_B4', 'SR_B3', 'SR_B2'], 'min': 0.0, 'max': 0.3}
-                        else:
-                            vis_params = {'bands': ['B4', 'B3', 'B2'], 'min': 0.0, 'max': 0.3}
-                    elif layer_selection == "NDBI":
-                        vis_params = {'bands': ['NDBI'], 'min': -1.0, 'max': 1.0, 'palette': ['green', 'yellow', 'red']}
-                    elif layer_selection == "NDMI":
-                        vis_params = {'bands': ['NDMI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'yellow', 'blue']}
-                    elif layer_selection == "NDWI":
-                        vis_params = {'bands': ['NDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'blue']}
-                    elif layer_selection == "MNDWI":
-                        vis_params = {'bands': ['MNDWI'], 'min': -1.0, 'max': 1.0, 'palette': ['brown', 'white', 'cyan']}
-                    elif layer_selection == "EVI":
-                        vis_params = {'bands': ['EVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                    elif layer_selection == "SAVI":
-                        vis_params = {'bands': ['SAVI'], 'min': -1.0, 'max': 1.0, 'palette': ['red', 'yellow', 'green']}
-                    elif layer_selection == "LST":
-                        vis_params = {'bands': ['LST'], 'min': 20.0, 'max': 45.0, 'palette': ['blue', 'yellow', 'red']}
-                    
-                    def fetch_url(img):
-                        return img.getMapId(vis_params)['tile_fetcher'].url_format
     
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     f_base = executor.submit(get_map_url, click_pt["lat"], click_pt["lng"], radius_m, baseline_year, data_source, layer_selection, vis_params)
@@ -962,23 +1128,7 @@ if catalog_mode == "Indices Analysis":
         else:
             st.markdown(f"#### Processing Output: {layer_selection}")
             
-            # Determine continuous legend properties
-            if layer_selection == "NDVI":
-                c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
-            elif layer_selection == "LST":
-                c_min, c_max, c_pal = 20.0, 45.0, "blue, yellow, red"
-            elif layer_selection == "NDBI":
-                c_min, c_max, c_pal = -1.0, 1.0, "green, yellow, red"
-            elif layer_selection == "NDMI":
-                c_min, c_max, c_pal = -1.0, 1.0, "brown, yellow, blue"
-            elif layer_selection == "NDWI":
-                c_min, c_max, c_pal = -1.0, 1.0, "brown, white, blue"
-            elif layer_selection == "MNDWI":
-                c_min, c_max, c_pal = -1.0, 1.0, "brown, white, cyan"
-            elif layer_selection in ["EVI", "SAVI"]:
-                c_min, c_max, c_pal = -1.0, 1.0, "red, yellow, green"
-            else:
-                c_min, c_max, c_pal = -1.0, 1.0, "black, white"
+            c_min, c_max, c_pal = get_legend_meta(layer_selection)
     
             is_inspector_on = st.session_state.get("inspector_active", False) and st.session_state.get("map_locked", False)
             
@@ -1059,6 +1209,206 @@ f"""<div style="display: flex; flex-direction: column; align-items: center; widt
     """)
     
 
+elif catalog_mode == "Terrain Engine: 3D Elevation":
+    mountains = load_britannica_mountains()
+    selected_mountain_id = st.session_state.get("terrain_mountain_id")
+    selected_mountain = next((m for m in mountains if m["id"] == selected_mountain_id), None)
+
+    st.subheader("Terrain Engine: 3D Elevation")
+    st.markdown("Pick a mountain from the Britannica catalog, inspect its SRTM topography in 2D, then explore the same terrain in 3D.")
+
+    if not selected_mountain:
+        st.info("Select a country and mountain in the sidebar to begin terrain analysis.")
+    else:
+        center_lat = float(selected_mountain["lat"])
+        center_lng = float(selected_mountain["lng"])
+        if not st.session_state.get("terrain_click"):
+            st.session_state["terrain_click"] = {"lat": center_lat, "lng": center_lng}
+
+        map_col, stats_col = st.columns([2, 1])
+        with map_col:
+            info_col, inspect_col = st.columns([1.2, 1.0])
+            with info_col:
+                st.markdown(
+                    f"**Current Mountain:** {selected_mountain['mountain']} ({selected_mountain['country']})"
+                )
+                st.caption(
+                    f"Catalog elevation: {selected_mountain.get('elevation_m', 'n/a')} m | "
+                    f"Center: {center_lat:.4f}, {center_lng:.4f}"
+                )
+            with inspect_col:
+                with st.container(border=True):
+                    st.markdown("**Inspector**")
+                    terrain_inspector_enabled = st.toggle(
+                        "Enable Click-to-Inspect",
+                        value=False,
+                        key="terrain_inspector_enabled",
+                    )
+
+            terrain_map = foliumap.Map(
+                center=st.session_state.get("terrain_center", [center_lat, center_lng]),
+                zoom=st.session_state.get("terrain_zoom", 11),
+                basemap=DEFAULT_BASEMAP,
+            )
+            folium.plugins.Geocoder().add_to(terrain_map)
+
+            try:
+                layer_url, elev_min, elev_max, terrain_roi = get_terrain_layer_url(
+                    center_lat,
+                    center_lng,
+                    terrain_extent_km,
+                    terrain_palette_name,
+                )
+                terrain_map.add_tile_layer(
+                    url=layer_url,
+                    name="DEM Layer",
+                    attribution="Google Earth Engine",
+                )
+                folium.Marker(
+                    location=[center_lat, center_lng],
+                    tooltip=f"{selected_mountain['mountain']} (Catalog Target)",
+                    icon=folium.Icon(color="red", icon="flag"),
+                ).add_to(terrain_map)
+
+                inspect_pt = st.session_state.get("terrain_click")
+                if inspect_pt and terrain_inspector_enabled:
+                    folium.Marker(
+                        location=[inspect_pt["lat"], inspect_pt["lng"]],
+                        tooltip="Inspector Point",
+                        icon=folium.Icon(color="black", icon="crosshairs", prefix="fa"),
+                    ).add_to(terrain_map)
+
+                map_data = st_folium(
+                    terrain_map,
+                    height=MAP_HEIGHT,
+                    use_container_width=True,
+                    returned_objects=["last_clicked"],
+                    key="terrain_map",
+                )
+                if map_data and map_data.get("last_clicked"):
+                    clicked = map_data["last_clicked"]
+                    if st.session_state.get("terrain_click") != clicked:
+                        st.session_state["terrain_click"] = clicked
+                        st.session_state["terrain_center"] = [clicked["lat"], clicked["lng"]]
+                        st.session_state["terrain_zoom"] = 11
+                        if terrain_inspector_enabled:
+                            metrics = get_terrain_point_metrics(clicked["lat"], clicked["lng"])
+                            st.session_state["terrain_inspector"] = {
+                                "lat": clicked["lat"],
+                                "lng": clicked["lng"],
+                                "elevation": metrics.get("elevation"),
+                                "slope": metrics.get("slope"),
+                            }
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Terrain rendering failed: {e}")
+                elev_min, elev_max = 0.0, 3000.0
+
+        with stats_col:
+            st.subheader("Terrain Legend")
+            palette_css = ", ".join(TERRAIN_PALETTES.get(terrain_palette_name, TERRAIN_PALETTES["Terrain"]))
+            st.markdown(
+                f"""<div style="display:flex;flex-direction:column;align-items:center;padding:0.75rem 0;">
+<div style="font-weight:700;margin-bottom:6px;">{elev_max:.1f} m</div>
+<div style="width:42px;height:240px;border:1px solid #d1d5db;border-radius:6px;background:linear-gradient(to top, {palette_css});"></div>
+<div style="font-weight:700;margin-top:6px;">{elev_min:.1f} m</div>
+</div>""",
+                unsafe_allow_html=True,
+            )
+
+            st.subheader("Click Inspector")
+            inspector_data = st.session_state.get("terrain_inspector")
+            if terrain_inspector_enabled and inspector_data:
+                e_val = inspector_data.get("elevation")
+                s_val = inspector_data.get("slope")
+                e_txt = f"{e_val:.2f} m" if isinstance(e_val, (int, float)) else "No Data"
+                s_txt = f"{s_val:.2f} deg" if isinstance(s_val, (int, float)) else "No Data"
+                st.markdown(
+                    f"""
+                    <div style='background:#f3f4f6;padding:0.9rem;border-radius:8px;border-left:4px solid #2563eb;'>
+                        <div style='font-weight:700;margin-bottom:0.3rem;'>Point Metrics</div>
+                        <div style='font-size:0.85rem;color:#4b5563;'>Lat: {inspector_data['lat']:.5f}, Lng: {inspector_data['lng']:.5f}</div>
+                        <div style='margin-top:0.4rem;'>Elevation: <b>{e_txt}</b></div>
+                        <div>Slope: <b>{s_txt}</b></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info("Enable inspector and click a map point to read elevation and slope.")
+
+        st.markdown("---")
+        st.subheader("Interactive 3D Terrain Viewer")
+        with st.spinner("Building decimated elevation mesh for 3D rendering..."):
+            try:
+                grid = fetch_terrain_surface_grid(
+                    center_lat,
+                    center_lng,
+                    terrain_extent_km,
+                    terrain_sample_scale_m,
+                )
+                if not grid:
+                    st.warning("Could not build 3D grid for this region.")
+                else:
+                    z = np.array(grid["z"], dtype=float)
+                    x = np.array(grid["lon"], dtype=float)
+                    y = np.array(grid["lat"], dtype=float)
+
+                    if np.isnan(z).all():
+                        st.warning("No valid SRTM elevation pixels were found for this area.")
+                    else:
+                        z_min = np.nanmin(z)
+                        z_max = np.nanmax(z)
+                        if np.isnan(z_min) or np.isnan(z_max):
+                            st.warning("Elevation values are invalid for this sampled region.")
+                            z_span = 1.0
+                        else:
+                            z_span = max(float(z_max - z_min), 1.0)
+
+                        # Keep elevation values true, then control visual steepness using scene aspect ratio.
+                        lat0 = float(np.nanmean(y))
+                        lon_span = float(np.nanmax(x) - np.nanmin(x))
+                        lat_span = float(np.nanmax(y) - np.nanmin(y))
+                        dx_m = max(abs(lon_span) * 111320.0 * max(np.cos(np.deg2rad(lat0)), 0.01), 1.0)
+                        dy_m = max(abs(lat_span) * 110540.0, 1.0)
+                        base_xy = max(dx_m, dy_m)
+                        aspect_x = dx_m / base_xy
+                        aspect_y = dy_m / base_xy
+                        aspect_z = max(0.03, (z_span * float(terrain_vertical_exaggeration)) / base_xy)
+
+                        palette = TERRAIN_PALETTES.get(terrain_palette_name, TERRAIN_PALETTES["Terrain"])
+                        plotly_scale = [[i / max(len(palette) - 1, 1), color] for i, color in enumerate(palette)]
+
+                        fig = go.Figure(
+                            data=[
+                                go.Surface(
+                                    x=x,
+                                    y=y,
+                                    z=z,
+                                    surfacecolor=z,
+                                    colorscale=plotly_scale,
+                                    cmin=float(np.nanmin(z)),
+                                    cmax=float(np.nanmax(z)),
+                                    colorbar={"title": "Elevation (m)"},
+                                )
+                            ]
+                        )
+                        fig.update_layout(
+                            height=640,
+                            margin={"l": 0, "r": 0, "t": 20, "b": 0},
+                            scene={
+                                "xaxis_title": "Longitude",
+                                "yaxis_title": "Latitude",
+                                "zaxis_title": "Elevation (m)",
+                                "aspectmode": "manual",
+                                "aspectratio": {"x": aspect_x, "y": aspect_y, "z": aspect_z},
+                                "camera": {"eye": {"x": 1.5, "y": 1.6, "z": 0.8}},
+                            },
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"3D surface rendering failed: {e}")
+
 elif catalog_mode == "Timelapse Viewer":
     st.subheader("Satellite Image Timelapse")
     st.markdown("Observe temporal surface dynamics dynamically through Landsat archives.")
@@ -1110,7 +1460,6 @@ elif catalog_mode == "Timelapse Viewer":
                     frames = [frame.copy() for frame in ImageSequence.Iterator(img)]
                 
                 b64_frames = []
-                import io
                 
                 # Burn text natively with Pillow to avoid ffmpeg crashes on Windows
                 years = list(range(tl_start_year, tl_end_year + 1))
@@ -1175,13 +1524,11 @@ elif catalog_mode == "Timelapse Viewer":
                 if processed_frames:
                     try:
                         import imageio
-                        import numpy as np
                         images_array = [np.array(img) for img in processed_frames]
                         imageio.mimsave(mp4_path, images_array, fps=tl_fps, format='FFMPEG', macro_block_size=None)
                     except Exception as e:
                         st.error(f"Failed to save MP4: {e}")
                 
-                import json
                 frames_json = json.dumps(b64_frames)
                 
                 # Render custom scrubber!
