@@ -527,13 +527,11 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
                 st.session_state["terrain_click"] = {"lat": selected_mountain["lat"], "lng": selected_mountain["lng"]}
                 st.session_state["terrain_inspector"] = None
 
-        st.subheader("Terrain Visualization")
-        terrain_palette_name = st.selectbox("DEM Palette", list(TERRAIN_PALETTES.keys()), index=0, key="terrain_palette")
-
         st.subheader("Terrain Region")
         terrain_extent_km = st.slider("Region Radius (km)", 4, 35, 15, key="terrain_extent_km")
 
         st.subheader("3D Viewer")
+        terrain_palette_name = st.selectbox("3D Surface Palette", list(TERRAIN_PALETTES.keys()), index=0, key="terrain_palette")
         terrain_vertical_exaggeration = st.slider("Vertical Scale (Flatten < 1.0, Exaggerate > 1.0)", 0.2, 4.0, 3.0, 0.05, key="terrain_z_exag")
         terrain_sample_scale_m = st.slider("3D Sampling Scale (m)", 90, 360, 270, 30, key="terrain_sampling_scale")
 
@@ -1257,7 +1255,7 @@ elif catalog_mode == "Terrain Engine: 3D Elevation":
                     center_lat,
                     center_lng,
                     terrain_extent_km,
-                    terrain_palette_name,
+                    "Terrain",
                 )
                 terrain_map.add_tile_layer(
                     url=layer_url,
@@ -1306,7 +1304,7 @@ elif catalog_mode == "Terrain Engine: 3D Elevation":
 
         with stats_col:
             st.subheader("Terrain Legend")
-            palette_css = ", ".join(TERRAIN_PALETTES.get(terrain_palette_name, TERRAIN_PALETTES["Terrain"]))
+            palette_css = ", ".join(TERRAIN_PALETTES["Terrain"])
             st.markdown(
                 f"""<div style="display:flex;flex-direction:column;align-items:center;padding:0.75rem 0;">
 <div style="font-weight:700;margin-bottom:6px;">{elev_max:.1f} m</div>
