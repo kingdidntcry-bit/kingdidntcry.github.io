@@ -675,7 +675,7 @@ def get_map_url(lat, lng, radius_m, year, source, layer, _vis_params):
 
 def get_image_download_url(image, filename, source):
     """Generates a GEE download URL for a TIFF image."""
-    scale = 30 if "Landsat" in source else 10
+    scale = 30 if ("Landsat" in source or "SRTM" in source) else 10
     try:
         url = image.getDownloadURL({
             'name': filename,
@@ -1329,6 +1329,22 @@ elif catalog_mode == "Terrain Engine: 3D Elevation":
 </div>""",
                 unsafe_allow_html=True,
             )
+
+            st.subheader("📥 Export Data")
+            if st.button("Download GeoTIFF (30m)", key="btn_dem_export", use_container_width=True):
+                with st.spinner("Generating GeoTIFF download link..."):
+                    try:
+                        roi = get_terrain_roi(center_lat, center_lng, terrain_extent_km)
+                        dem_to_export = get_terrain_dem().clip(roi)
+                        # Re-use existing helper
+                        dl_url = get_image_download_url(dem_to_export, f'terrascan_dem_{selected_mountain["mountain"].replace(" ", "_")}', "SRTM")
+                        if dl_url:
+                            st.success("GeoTIFF Ready!")
+                            st.link_button("Click here to download TIFF", dl_url, use_container_width=True)
+                        else:
+                            st.error("GEE export limit reached or region too large.")
+                    except Exception as e:
+                        st.error(f"Export failed: {e}")
 
             st.subheader("Click Inspector")
             inspector_data = st.session_state.get("terrain_inspector")
