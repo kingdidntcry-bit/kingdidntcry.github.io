@@ -718,41 +718,6 @@ def render_export_buttons(click_pt, baseline_img, comp_img, layer_selection, bas
                 else: st.button(f"Download {comparison_year} (Right)", disabled=True, use_container_width=True)
             except: st.button(f"Download {comparison_year} (Right)", disabled=True, use_container_width=True)
 
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_historical_trend(lat, lng, source, layer):
-    """Fetches annual median values for a point across a 10-year window for trend analysis."""
-    end_year = datetime.date.today().year
-    start_year = end_year - 9
-    years = list(range(start_year, end_year + 1))
-    
-    pt = ee.Geometry.Point([lng, lat])
-    data = []
-    
-    # We use a smaller loop to avoid hitting GEE limits in one go, 
-    # but since this is cached it will be fast after first load.
-    for year in years:
-        try:
-            img = get_annual_median(year, source)
-            if layer == "LST" and source == "Landsat (30m)":
-                img = calculate_manual_lst(img)
-            
-            # Reduce region at 30m/10m scale
-            scale = 30 if "Landsat" in source else 10
-            stats = img.select(layer).reduceRegion(
-                reducer=ee.Reducer.median(),
-                geometry=pt,
-                scale=scale
-            ).getInfo()
-            
-            val = stats.get(layer)
-            if val is not None:
-                data.append({"Year": year, "Value": round(float(val), 4)})
-        except:
-            continue
-            
-    return data
-
 def get_annual_median(target_year, source):
     start = f'{target_year}-01-01'
     end = f'{target_year}-12-31'
@@ -1216,34 +1181,6 @@ f"""<div style="display: flex; justify-content: center; gap: 3rem; width: 100%; 
                         <p style='margin: 0; font-weight: 600; color: #1e40af;'>Right Map: {c_text}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                    if st.button("📈 View Historical Trend", use_container_width=True, key="btn_trend"):
-                        with st.spinner("Fetching 10-year satellite trend..."):
-                            trend_data = fetch_historical_trend(insp['lat'], insp['lng'], data_source, layer_selection)
-                            if trend_data:
-                                df_trend = pd.DataFrame(trend_data)
-                                fig_trend = go.Figure()
-                                fig_trend.add_trace(go.Scatter(
-                                    x=df_trend["Year"], 
-                                    y=df_trend["Value"],
-                                    mode='lines+markers',
-                                    line=dict(color='#3B82F6', width=3),
-                                    marker=dict(size=8, color='#1e40af'),
-                                    fill='tozeroy',
-                                    name=layer_selection
-                                ))
-                                fig_trend.update_layout(
-                                    title=f"10-Year {layer_selection} Trend",
-                                    xaxis_title="Year",
-                                    yaxis_title=layer_selection,
-                                    height=300,
-                                    margin=dict(l=0, r=0, t=40, b=0),
-                                    paper_bgcolor='rgba(0,0,0,0)',
-                                    plot_bgcolor='rgba(0,0,0,0)'
-                                )
-                                st.plotly_chart(fig_trend, use_container_width=True)
-                            else:
-                                st.warning("Insufficient data found for historical trend at this coordinate.")
             else:
                 # Default single colorbar layout when inspector is off
                 st.markdown(
