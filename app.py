@@ -19,7 +19,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageSequence
 from streamlit_folium import st_folium
 
 def get_base64_image(image_path):
-    import base64
     try:
         if os.path.exists(image_path):
             with open(image_path, "rb") as img_file:
@@ -121,22 +120,22 @@ if "page" not in st.session_state:
     st.session_state.page = "landing"
 
 # --- Global Header ---
-st.markdown("""
+st.markdown(f"""
     <style>
-        [data-testid="stHeader"] {
+        [data-testid="stHeader"] {{
             background: transparent !important;
             pointer-events: none;
-        }
-        [data-testid="stToolbar"] {
+        }}
+        [data-testid="stToolbar"] {{
             pointer-events: auto;
-        }
+        }}
     </style>
     <div style='position: fixed; top: 0; left: 0; width: 100%; height: 60px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; align-items: center; padding-left: 75px; gap: 16px; z-index: 999980; pointer-events: none;'>
         <div style='font-size: 1.4rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; pointer-events: auto;'>
             ☁ TerraScan
         </div>
         <div style='height: 32px; width: 2px; background-color: #D1D5DB; pointer-events: auto;'></div>
-        <img src='https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png' style='height: 40px; object-fit: contain; pointer-events: auto;'>
+        <img src='{UITM_LOGO_B64 if UITM_LOGO_B64 else "https://fab.uitm.edu.my/images/Icon%20and%20Logo/FAB.png"}' style='height: 40px; object-fit: contain; pointer-events: auto;'>
     </div>
 """, unsafe_allow_html=True)
 
