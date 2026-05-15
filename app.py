@@ -18,6 +18,21 @@ import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 from streamlit_folium import st_folium
 
+def get_base64_image(image_path):
+    import base64
+    try:
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as img_file:
+                return f"data:image/png;base64,{base64.b64encode(img_file.read()).decode()}"
+    except Exception:
+        pass
+    return ""
+
+# Pre-load branding assets
+UITM_LOGO_B64 = get_base64_image("assets/uitm_logo.png")
+NGGSIC_LOGO_B64 = get_base64_image("assets/nggsic_logo.png")
+
+
 @st.cache_data(show_spinner=False)
 def get_location_name(lat, lon):
     try:
@@ -345,10 +360,10 @@ if st.session_state.page == "landing":
             st.rerun()
             
     # --- THIRD SECTION (WHITE FULL-WIDTH FOOTER) ---
-    st.markdown("""
+    st.markdown(f"""
         <div style="position: relative; z-index: 1; width: 100vw; margin-left: calc(50% - 50vw); background-color: #ffffff; padding: 4rem 0 2rem 0; margin-top: 6rem; margin-bottom: -10rem;">
             <div class='footer-container'>
-                <img class='footer-logo' src='https://lh3.googleusercontent.com/sitesv/AA5AbUComDqxzCfk5ju9if-jaRZgmBxYYFtKB0FH3wWmiq_2_cm-f1M5q6S7yq9nobNInl3hSiYZk2NedJo4hAAf2c4asIs_ezWj8TYvbOpSbz7kw0k9_jBErfnhLU4MkqYs6D9t6fuf8D8w8IUn81qFFDo53Dffa1rJGGa0yNf_YMZ6smDANmB4TAOcEIY=w16383'>
+                <img class='footer-logo' src='{NGGSIC_LOGO_B64}'>
                 <div class='footer-title'>TERRASCAN: AN INTEGRATED SYSTEM FOR DECODING A DECADE OF SURFACE EVOLUTION.</div>
                 <p class='footer-info'><b>Team Members:</b> Raja Haziq Bin Raja Idzhar, Nurul Fatin Amira Binti Mohd Nasarrudin, and Eizra Akmal Binti Ellemy Iskandar.</p>
                 <p class='footer-info'><b>Supervisor:</b> Sr Dr Lau Chong Luh</p>
