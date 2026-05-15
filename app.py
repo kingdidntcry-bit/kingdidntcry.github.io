@@ -2,7 +2,7 @@ import base64
 import datetime
 import io
 import json
-import os
+import os; os.makedirs("exports", exist_ok=True)
 from concurrent.futures import ThreadPoolExecutor
 
 import ee
@@ -1440,8 +1440,8 @@ elif catalog_mode == "Timelapse Viewer":
         }
         bands = band_map[tl_bands]
         
-        gif_path = "scratch_timelapse.gif"
-        mp4_path = "scratch_timelapse.mp4"
+        gif_path = "exports/scratch_timelapse.gif"
+        mp4_path = "exports/scratch_timelapse.mp4"
         location_name = get_location_name(click_pt['lat'], click_pt['lng'])
         
         if run_tl:
@@ -1601,7 +1601,7 @@ elif catalog_mode == "Timelapse Viewer":
                 """
                 # --- Export Button (Above Scrubber) ---
                 st.markdown("### 📥 Download Timelapse (MP4)")
-                mp4_path = "scratch_timelapse.mp4"
+                mp4_path = "exports/scratch_timelapse.mp4"
                 if os.path.exists(mp4_path):
                     with open(mp4_path, "rb") as f:
                         st.download_button(
