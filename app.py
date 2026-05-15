@@ -94,7 +94,7 @@ SESSION_DEFAULTS = {
     "terrain_mountain_id": None,
     "terrain_extent_km": 15,
     "terrain_z_exag": 3.0,
-    "terrain_sampling_scale": 270,
+    "terrain_sampling_scale": 180,
     "terrain_inspector_enabled": False,
 }
 for key, value in SESSION_DEFAULTS.items():
@@ -533,7 +533,7 @@ with st.sidebar.expander("⚙️ Configuration & Settings", expanded=False):
         st.subheader("3D Viewer")
         terrain_palette_name = st.selectbox("3D Surface Palette", list(TERRAIN_PALETTES.keys()), index=0, key="terrain_palette")
         terrain_vertical_exaggeration = st.slider("Vertical Scale (Flatten < 1.0, Exaggerate > 1.0)", 0.2, 4.0, 3.0, 0.05, key="terrain_z_exag")
-        terrain_sample_scale_m = st.slider("3D Sampling Scale (m)", 90, 360, 270, 30, key="terrain_sampling_scale")
+        terrain_sample_scale_m = st.slider("3D Sampling Scale (m)", 90, 360, 180, 30, key="terrain_sampling_scale")
 
 # --- GEE Backend Functions ---
 def get_landsat_collection(start_date, end_date):
