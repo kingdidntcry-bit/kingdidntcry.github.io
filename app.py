@@ -235,9 +235,11 @@ if st.session_state.page == "landing":
             margin: 0 auto;
         }
         .footer-logo {
-            height: 70px;
+            height: 120px;
+            width: auto;
             object-fit: contain;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
+            display: block;
         }
         .footer-title {
             font-weight: 700;
